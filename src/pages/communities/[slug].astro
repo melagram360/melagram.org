@@ -1,0 +1,577 @@
+---
+import "../../styles/global.css";
+
+export function getStaticPaths() {
+  const communities = [
+    {
+      slug: "creative-minds",
+      icon: "🎨",
+      name: "Creative Minds",
+      category: "Creativity",
+      members: "12.4K",
+      description:
+        "A space for artists, designers, writers, musicians, and creative people to share ideas and inspire each other.",
+      accent: "CREATE • INSPIRE • CONNECT"
+    },
+    {
+      slug: "music-lounge",
+      icon: "🎵",
+      name: "Music Lounge",
+      category: "Music",
+      members: "9.8K",
+      description:
+        "Talk music, discover new sounds, share your work, and connect with people who live and breathe music.",
+      accent: "LISTEN • SHARE • DISCOVER"
+    },
+    {
+      slug: "movie-tv-talk",
+      icon: "🎬",
+      name: "Movie & TV Talk",
+      category: "Entertainment",
+      members: "8.6K",
+      description:
+        "Your spot for movie nights, television debates, reviews, recommendations, and everything on screen.",
+      accent: "WATCH • DISCUSS • DEBATE"
+    },
+    {
+      slug: "food-flavor",
+      icon: "🍳",
+      name: "Food & Flavor",
+      category: "Lifestyle",
+      members: "7.2K",
+      description:
+        "Recipes, cooking experiments, restaurant finds, food stories, and people who simply love to eat.",
+      accent: "COOK • EAT • SHARE"
+    },
+    {
+      slug: "travel-circle",
+      icon: "✈️",
+      name: "Travel Circle",
+      category: "Travel",
+      members: "6.9K",
+      description:
+        "Share destinations, travel stories, tips, dream trips, and unforgettable experiences from around the world.",
+      accent: "EXPLORE • EXPERIENCE • DISCOVER"
+    },
+    {
+      slug: "real-talk",
+      icon: "💬",
+      name: "Real Talk",
+      category: "Conversation",
+      members: "15.1K",
+      description:
+        "Open conversations about life, culture, relationships, experiences, and the things people really want to discuss.",
+      accent: "TALK • LISTEN • CONNECT"
+    }
+  ];
+
+  return communities.map((community) => ({
+    params: {
+      slug: community.slug
+    },
+    props: {
+      community
+    }
+  }));
+}
+
+const { community } = Astro.props;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content={`${community.name} community on Melagram.`}
+    />
+    <title>{community.name} — Melagram</title>
+  </head>
+
+  <body>
+    <div class="min-h-screen overflow-hidden">
+
+      <!-- TOP GOLD FRAME -->
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+      <!-- NAV -->
+      <header class="relative z-30 border-b border-[#d9ad55]/30 bg-[#07030d]/95 backdrop-blur">
+        <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-10">
+
+          <a href="/" class="flex items-center gap-3" aria-label="Melagram Home">
+            <div class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#1a0827] text-[#ffe8a6] shadow-[0_0_18px_rgba(109,25,201,.4)]">
+              M
+            </div>
+
+            <span class="display hidden text-lg tracking-[.18em] text-[#ffe8a6] sm:block">
+              MELAGRAM
+            </span>
+          </a>
+
+          <div class="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[.22em] text-white/75 md:flex">
+            <a class="nav-link" href="/">Home</a>
+            <a class="nav-link" href="/discover">Discover</a>
+            <a class="nav-link text-[#d9ad55]" href="/communities">Communities</a>
+            <a class="nav-link" href="/#creators">Creators</a>
+            <a class="nav-link" href="/#about">About</a>
+          </div>
+
+          <div class="flex items-center gap-3">
+
+            <a
+              href="#"
+              class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 sm:block"
+            >
+              Log In
+            </a>
+
+            <a
+              href="/#join"
+              class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
+            >
+              Join Melagram
+            </a>
+
+          </div>
+
+        </nav>
+      </header>
+
+      <!-- COMMUNITY HERO -->
+      <main>
+
+        <section class="relative overflow-hidden border-b border-[#d9ad55]/20">
+
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(109,25,201,.38),transparent_55%)]"></div>
+
+          <div class="absolute -left-32 top-20 h-72 w-72 rounded-full bg-[#6d19c9]/10 blur-3xl"></div>
+
+          <div class="absolute -right-32 top-20 h-72 w-72 rounded-full bg-[#d9ad55]/5 blur-3xl"></div>
+
+          <div class="relative mx-auto max-w-7xl px-5 py-12 lg:px-10 lg:py-16">
+
+            <!-- BACK -->
+            <a
+              href="/communities"
+              class="mb-10 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.2em] text-white/45 transition hover:text-[#ffe8a6]"
+            >
+              ← Back to Communities
+            </a>
+
+            <div class="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
+
+              <div>
+
+                <!-- CATEGORY -->
+                <div class="mb-5 flex flex-wrap items-center gap-3">
+
+                  <span class="rounded-full border border-[#d9ad55]/50 bg-[#160722] px-4 py-2 text-[9px] font-bold uppercase tracking-[.2em] text-[#d9ad55]">
+                    {community.category}
+                  </span>
+
+                  <span class="text-[9px] font-semibold uppercase tracking-[.3em] text-white/30">
+                    {community.accent}
+                  </span>
+
+                </div>
+
+                <!-- COMMUNITY IDENTITY -->
+                <div class="flex items-center gap-5">
+
+                  <div class="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border-2 border-[#d9ad55]/70 bg-[#160722] text-4xl shadow-[0_0_35px_rgba(109,25,201,.28)] sm:h-24 sm:w-24 sm:text-5xl">
+                    {community.icon}
+                  </div>
+
+                  <div>
+
+                    <p class="text-[10px] font-bold uppercase tracking-[.45em] text-[#d9ad55]">
+                      COMMUNITY
+                    </p>
+
+                    <h1 class="display mt-2 text-4xl leading-tight text-[#fff4d4] sm:text-6xl">
+                      {community.name}
+                    </h1>
+
+                  </div>
+
+                </div>
+
+                <!-- DESCRIPTION -->
+                <p class="mt-7 max-w-3xl text-base leading-8 text-white/55 sm:text-lg">
+                  {community.description}
+                </p>
+
+                <!-- STATS -->
+                <div class="mt-7 flex flex-wrap items-center gap-6 text-[10px] font-semibold uppercase tracking-[.18em]">
+
+                  <span class="text-[#ffe8a6]">
+                    {community.members} members
+                  </span>
+
+                  <span class="h-1 w-1 rounded-full bg-[#d9ad55]"></span>
+
+                  <span class="text-white/35">
+                    Public Community
+                  </span>
+
+                </div>
+
+              </div>
+
+              <!-- JOIN -->
+              <div class="lg:pb-1">
+
+                <button
+                  class="cta w-full rounded-xl px-8 py-4 text-sm font-bold uppercase tracking-[.16em] text-white sm:w-auto"
+                >
+                  Join Community
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- COMMUNITY TABS -->
+        <section class="sticky top-0 z-20 border-b border-[#d9ad55]/20 bg-[#07030d]/95 backdrop-blur">
+
+          <div class="mx-auto flex max-w-7xl gap-7 overflow-x-auto px-5 lg:px-10">
+
+            <a
+              href="#feed"
+              class="border-b-2 border-[#d9ad55] py-4 text-[10px] font-bold uppercase tracking-[.2em] text-[#ffe8a6]"
+            >
+              Home
+            </a>
+
+            <a
+              href="#posts"
+              class="py-4 text-[10px] font-bold uppercase tracking-[.2em] text-white/40 hover:text-[#ffe8a6]"
+            >
+              Posts
+            </a>
+
+            <a
+              href="#members"
+              class="py-4 text-[10px] font-bold uppercase tracking-[.2em] text-white/40 hover:text-[#ffe8a6]"
+            >
+              Members
+            </a>
+
+            <a
+              href="#about"
+              class="py-4 text-[10px] font-bold uppercase tracking-[.2em] text-white/40 hover:text-[#ffe8a6]"
+            >
+              About
+            </a>
+
+          </div>
+
+        </section>
+
+        <!-- CONTENT -->
+        <section id="feed" class="px-5 py-12 lg:px-10 lg:py-16">
+
+          <div class="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+
+            <!-- MAIN FEED -->
+            <div class="space-y-6">
+
+              <!-- CREATE POST -->
+              <div class="luxury-panel gold-border rounded-2xl p-5 sm:p-6">
+
+                <div class="flex items-center gap-4">
+
+                  <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#d9ad55]/40 bg-[#160722] text-[#ffe8a6]">
+                    M
+                  </div>
+
+                  <button
+                    class="w-full rounded-xl border border-white/10 bg-black/25 px-5 py-3 text-left text-sm text-white/30 transition hover:border-[#d9ad55]/40"
+                  >
+                    What's happening in the community?
+                  </button>
+
+                </div>
+
+                <div class="mt-5 flex flex-wrap justify-between gap-3 border-t border-[#d9ad55]/10 pt-5">
+
+                  <button class="text-[10px] font-bold uppercase tracking-wider text-white/40 hover:text-[#ffe8a6]">
+                    📷 Photo
+                  </button>
+
+                  <button class="text-[10px] font-bold uppercase tracking-wider text-white/40 hover:text-[#ffe8a6]">
+                    🎥 Video
+                  </button>
+
+                  <button class="text-[10px] font-bold uppercase tracking-wider text-white/40 hover:text-[#ffe8a6]">
+                    ✨ Create
+                  </button>
+
+                  <button class="rounded-lg border border-[#d9ad55]/50 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6]">
+                    Create Post
+                  </button>
+
+                </div>
+
+              </div>
+
+              <!-- PINNED POST -->
+              <article id="posts" class="luxury-panel gold-border rounded-2xl p-6">
+
+                <div class="mb-5 flex items-center justify-between">
+
+                  <span class="rounded-full border border-[#d9ad55]/40 bg-[#d9ad55]/5 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[#d9ad55]">
+                    📌 Pinned
+                  </span>
+
+                  <span class="text-[10px] text-white/25">
+                    Community Admin
+                  </span>
+
+                </div>
+
+                <div class="flex gap-4">
+
+                  <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#d9ad55]/40 bg-[#160722] text-[#ffe8a6]">
+                    M
+                  </div>
+
+                  <div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+
+                      <h3 class="font-semibold text-white">
+                        Welcome to {community.name}
+                      </h3>
+
+                      <span class="text-xs text-white/25">
+                        •
+                      </span>
+
+                      <span class="text-xs text-white/30">
+                        Community Admin
+                      </span>
+
+                    </div>
+
+                    <p class="mt-4 text-sm leading-7 text-white/55">
+                      Welcome to the community! This is your space to connect,
+                      share ideas, start conversations, and meet people who share
+                      your interests.
+                    </p>
+
+                    <p class="mt-4 text-sm leading-7 text-white/55">
+                      Be respectful, have fun, and most importantly — bring your
+                      personality. That's what Melagram is all about.
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <!-- POST ACTIONS -->
+                <div class="mt-6 flex items-center gap-6 border-t border-[#d9ad55]/10 pt-5">
+
+                  <button class="text-[10px] font-bold uppercase tracking-wider text-white/35 hover:text-[#ffe8a6]">
+                    ♡ Like
+                  </button>
+
+                  <button class="text-[10px] font-bold uppercase tracking-wider text-white/35 hover:text-[#ffe8a6]">
+                    ◯ Comment
+                  </button>
+
+                  <button class="text-[10px] font-bold uppercase tracking-wider text-white/35 hover:text-[#ffe8a6]">
+                    ↗ Share
+                  </button>
+
+                </div>
+
+              </article>
+
+              <!-- FUTURE FEED -->
+              <div class="relative overflow-hidden rounded-2xl border border-[#d9ad55]/20 bg-[#08040d] px-6 py-16 text-center sm:px-10">
+
+                <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(109,25,201,.16),transparent_65%)]"></div>
+
+                <div class="relative">
+
+                  <p class="text-[10px] font-bold uppercase tracking-[.45em] text-[#d9ad55]">
+                    Coming Soon
+                  </p>
+
+                  <h2 class="display mt-4 text-3xl text-[#fff4d4] sm:text-4xl">
+                    The conversation starts here.
+                  </h2>
+
+                  <p class="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/40">
+                    Posts, discussions, reactions, member profiles, and community
+                    activity are coming to Melagram.
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- SIDEBAR -->
+            <aside class="space-y-6">
+
+              <!-- ABOUT -->
+              <div id="about" class="luxury-panel gold-border rounded-2xl p-6">
+
+                <p class="text-[10px] font-bold uppercase tracking-[.4em] text-[#d9ad55]">
+                  About
+                </p>
+
+                <h2 class="display mt-3 text-2xl text-[#ffe8a6]">
+                  {community.name}
+                </h2>
+
+                <p class="mt-4 text-sm leading-7 text-white/45">
+                  {community.description}
+                </p>
+
+                <div class="mt-6 space-y-4 border-t border-[#d9ad55]/10 pt-6">
+
+                  <div class="flex items-center justify-between">
+
+                    <span class="text-[10px] uppercase tracking-wider text-white/30">
+                      Members
+                    </span>
+
+                    <span class="text-sm font-semibold text-[#ffe8a6]">
+                      {community.members}
+                    </span>
+
+                  </div>
+
+                  <div class="flex items-center justify-between">
+
+                    <span class="text-[10px] uppercase tracking-wider text-white/30">
+                      Category
+                    </span>
+
+                    <span class="text-sm font-semibold text-[#ffe8a6]">
+                      {community.category}
+                    </span>
+
+                  </div>
+
+                  <div class="flex items-center justify-between">
+
+                    <span class="text-[10px] uppercase tracking-wider text-white/30">
+                      Privacy
+                    </span>
+
+                    <span class="text-sm font-semibold text-[#ffe8a6]">
+                      Public
+                    </span>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <!-- RULES -->
+              <div id="members" class="luxury-panel gold-border rounded-2xl p-6">
+
+                <p class="text-[10px] font-bold uppercase tracking-[.4em] text-[#d9ad55]">
+                  Community Rules
+                </p>
+
+                <div class="mt-5 space-y-5">
+
+                  <div class="flex gap-3">
+                    <span class="text-[#d9ad55]">01</span>
+
+                    <p class="text-xs leading-6 text-white/45">
+                      Respect the people you're talking to.
+                    </p>
+                  </div>
+
+                  <div class="flex gap-3">
+                    <span class="text-[#d9ad55]">02</span>
+
+                    <p class="text-xs leading-6 text-white/45">
+                      Keep conversations relevant and constructive.
+                    </p>
+                  </div>
+
+                  <div class="flex gap-3">
+                    <span class="text-[#d9ad55]">03</span>
+
+                    <p class="text-xs leading-6 text-white/45">
+                      No harassment, spam, or malicious content.
+                    </p>
+                  </div>
+
+                </div>
+
+              </div>
+
+              <!-- BROWSE COMMUNITIES -->
+              <a
+                href="/communities"
+                class="block rounded-2xl border border-[#d9ad55]/30 bg-[#0a050f] p-6 text-center transition hover:border-[#d9ad55]/70 hover:bg-[#12071b]"
+              >
+
+                <p class="text-[10px] font-bold uppercase tracking-[.25em] text-[#d9ad55]">
+                  Explore More
+                </p>
+
+                <p class="display mt-2 text-xl text-[#ffe8a6]">
+                  Browse Communities
+                </p>
+
+                <p class="mt-2 text-xs text-white/30">
+                  Find your next conversation.
+                </p>
+
+              </a>
+
+            </aside>
+
+          </div>
+
+        </section>
+
+      </main>
+
+      <!-- FOOTER -->
+      <footer class="border-t border-[#d9ad55]/20 bg-[#050208] px-5 py-10 lg:px-10">
+
+        <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
+
+          <div>
+
+            <p class="display text-lg tracking-[.2em] text-[#ffe8a6]">
+              MELAGRAM
+            </p>
+
+            <p class="mt-1 text-[10px] uppercase tracking-[.3em] text-white/35">
+              Connect. Network. Create. Build Community.
+            </p>
+
+          </div>
+
+          <p class="text-xs text-white/30">
+            © 2026 Melagram. All rights reserved.
+          </p>
+
+        </div>
+
+      </footer>
+
+      <!-- BOTTOM GOLD FRAME -->
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+    </div>
+  </body>
+</html>
