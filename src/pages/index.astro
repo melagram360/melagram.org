@@ -1,0 +1,160 @@
+---
+import "../styles/global.css";
+
+const features = [
+  { icon: "✦", title: "Discover", text: "Find people, creators, communities, and conversations worth following." },
+  { icon: "◈", title: "Communities", text: "Build spaces around the interests, culture, and conversations you care about." },
+  { icon: "♛", title: "Creators", text: "Give creators a place to build their audience and own their community." },
+  { icon: "◎", title: "Connect", text: "Share posts, photos, videos, ideas, and moments with your network." }
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content="Melagram — Connect. Network. Create. Build Community." />
+    <title>Melagram — Connect. Network. Create. Build Community.</title>
+  </head>
+
+  <body>
+    <div class="min-h-screen overflow-hidden">
+
+      <!-- Luxury frame -->
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+      <!-- NAV -->
+      <header class="relative z-20 border-b border-[#d9ad55]/30 bg-[#07030d]/90 backdrop-blur">
+        <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-10">
+          <a href="/" class="flex items-center gap-3" aria-label="Melagram Home">
+            <div class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#1a0827] text-[#ffe8a6] shadow-[0_0_18px_rgba(109,25,201,.4)]">
+              M
+            </div>
+            <span class="display hidden text-lg tracking-[.18em] text-[#ffe8a6] sm:block">MELAGRAM</span>
+          </a>
+
+          <div class="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[.22em] text-white/75 md:flex">
+            <a class="nav-link" href="/">Home</a>
+            <a class="nav-link" href="#discover">Discover</a>
+            <a class="nav-link" href="#communities">Communities</a>
+            <a class="nav-link" href="#creators">Creators</a>
+            <a class="nav-link" href="#about">About</a>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <a href="#" class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 sm:block">Log In</a>
+            <a href="#join" class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Join Melagram</a>
+          </div>
+        </nav>
+      </header>
+
+      <!-- HERO -->
+      <main>
+        <section class="relative px-5 pb-16 pt-10 sm:pt-14 lg:px-10">
+          <div class="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_center,rgba(109,25,201,.25),transparent_65%)]"></div>
+
+          <div class="relative mx-auto max-w-7xl">
+            <div class="mb-8 flex items-center justify-center gap-4">
+              <div class="gold-line w-24 sm:w-44"></div>
+              <span class="text-[9px] font-semibold uppercase tracking-[.45em] text-[#d9ad55]">A New Social Experience</span>
+              <div class="gold-line w-24 sm:w-44"></div>
+            </div>
+
+            <div class="luxury-panel gold-border relative overflow-hidden rounded-[2rem] px-4 py-12 sm:px-10 sm:py-16">
+              <div class="pointer-events-none absolute inset-0 opacity-60">
+                <div class="absolute left-0 top-1/2 h-px w-full bg-gradient-to-r from-transparent via-[#d9ad55]/40 to-transparent"></div>
+                <div class="absolute left-1/2 top-0 h-full w-px bg-gradient-to-b from-transparent via-[#d9ad55]/20 to-transparent"></div>
+              </div>
+
+              <div class="relative mx-auto max-w-4xl text-center">
+                <img
+                  src="/images/melagram-logo.jpg"
+                  alt="Melagram"
+                  class="mx-auto mb-7 w-full max-w-2xl rounded-2xl border border-[#d9ad55]/25 shadow-[0_0_55px_rgba(109,25,201,.25)]"
+                />
+
+                <p class="mx-auto max-w-2xl text-sm leading-7 text-white/65 sm:text-base">
+                  A social network built around connection, creativity, discovery, and community.
+                  Come in, find your people, and make your space.
+                </p>
+
+                <div class="mt-9 flex flex-wrap justify-center gap-4">
+                  <a href="#join" class="cta rounded-xl px-7 py-3.5 text-sm font-bold uppercase tracking-wider">Enter Melagram</a>
+                  <a href="#discover" class="rounded-xl border border-[#d9ad55]/70 px-7 py-3.5 text-sm font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black">Explore</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- FEATURE STRIP -->
+        <section id="discover" class="border-y border-[#d9ad55]/20 bg-black/30 px-5 py-12 lg:px-10">
+          <div class="mx-auto grid max-w-7xl gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {features.map((feature) => (
+              <article class="feature-card gold-border luxury-panel rounded-2xl p-6">
+                <div class="mb-5 grid h-12 w-12 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-xl text-[#ffe8a6]">
+                  {feature.icon}
+                </div>
+                <h2 class="display text-2xl gold-text">{feature.title}</h2>
+                <p class="mt-3 text-sm leading-6 text-white/55">{feature.text}</p>
+                <a href="#" class="mt-5 inline-block text-xs font-bold uppercase tracking-widest text-[#d9ad55]">Explore →</a>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <!-- COMMUNITY -->
+        <section id="communities" class="px-5 py-20 lg:px-10">
+          <div class="mx-auto max-w-5xl text-center">
+            <p class="text-[10px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">The Melagram Experience</p>
+            <h2 class="display mt-4 text-4xl leading-tight text-[#fff4d4] sm:text-6xl">Your community. Your voice. Your space.</h2>
+            <p class="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/55">
+              Melagram is designed to feel personal, social, and welcoming — while giving creators,
+              communities, and everyday users room to build something of their own.
+            </p>
+          </div>
+
+          <div class="mx-auto mt-12 grid max-w-6xl gap-6 md:grid-cols-3">
+            <div class="arch luxury-panel min-h-[260px] px-7 pb-8 pt-24 text-center">
+              <h3 class="display text-2xl gold-text">Connect</h3>
+              <p class="mt-3 text-sm leading-6 text-white/50">Follow the people and conversations that matter to you.</p>
+            </div>
+            <div class="arch luxury-panel min-h-[260px] px-7 pb-8 pt-24 text-center">
+              <h3 class="display text-2xl gold-text">Create</h3>
+              <p class="mt-3 text-sm leading-6 text-white/50">Post your ideas, media, stories, and moments.</p>
+            </div>
+            <div class="arch luxury-panel min-h-[260px] px-7 pb-8 pt-24 text-center">
+              <h3 class="display text-2xl gold-text">Build</h3>
+              <p class="mt-3 text-sm leading-6 text-white/50">Turn shared interests into real communities.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- JOIN -->
+        <section id="join" class="px-5 pb-20 lg:px-10">
+          <div class="luxury-panel gold-border mx-auto max-w-5xl rounded-[2rem] px-6 py-14 text-center sm:px-12">
+            <p class="text-[10px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">Coming Together</p>
+            <h2 class="display mt-4 text-4xl text-[#fff4d4] sm:text-5xl">Welcome to Melagram.</h2>
+            <p class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55">
+              Connect. Network. Create. Build Community.
+            </p>
+            <a href="#" class="cta mt-8 inline-flex rounded-xl px-8 py-4 text-sm font-bold uppercase tracking-wider">Create Your Account</a>
+          </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer id="about" class="border-t border-[#d9ad55]/20 bg-[#050208] px-5 py-10 lg:px-10">
+          <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
+            <div>
+              <p class="display text-lg tracking-[.2em] text-[#ffe8a6]">MELAGRAM</p>
+              <p class="mt-1 text-[10px] uppercase tracking-[.3em] text-white/35">Connect. Network. Create. Build Community.</p>
+            </div>
+            <p class="text-xs text-white/30">© 2026 Melagram. All rights reserved.</p>
+          </div>
+        </footer>
+      </main>
+
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+    </div>
+  </body>
+</html>
