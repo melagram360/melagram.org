@@ -8,6 +8,7 @@ const result = Astro.getActionResult(actions.updateProfile);
 const supabase = createClient({
   request: Astro.request,
   cookies: Astro.cookies,
+  env: Astro.locals.runtime.env,
 });
 
 const {
@@ -51,14 +52,37 @@ const initials = displayName
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Edit your Melagram profile."
+    />
     <title>Edit Profile | Melagram</title>
   </head>
 
   <body>
-    <main class="min-h-screen px-5 py-8 md:px-8 md:py-12">
-      <div class="mx-auto max-w-5xl">
+    <main class="min-h-screen overflow-hidden bg-[#050208] px-5 py-8 text-[#fff7e5] md:px-8 md:py-12">
 
-        <!-- Top Navigation -->
+      <!-- BACKGROUND -->
+      <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div
+          class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(109,25,201,.35),transparent_38rem)]"
+        ></div>
+
+        <div
+          class="absolute -left-40 top-80 h-[500px] w-[500px] rounded-full bg-[#6d19c9]/15 blur-[120px]"
+        ></div>
+
+        <div
+          class="absolute -right-40 top-[40rem] h-[600px] w-[600px] rounded-full bg-[#8b22d9]/15 blur-[140px]"
+        ></div>
+      </div>
+
+      <!-- GOLD TOP LINE -->
+      <div class="fixed left-0 right-0 top-0 z-50 h-1 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+      <div class="mx-auto max-w-5xl pt-3">
+
+        <!-- NAV -->
         <div class="mb-8 flex items-center justify-between">
           <a
             href="/profile"
@@ -75,7 +99,7 @@ const initials = displayName
           </a>
         </div>
 
-        <!-- Header -->
+        <!-- HEADER -->
         <section class="mb-8 text-center">
           <p class="mb-3 text-xs font-semibold uppercase tracking-[0.4em] text-[#d9ad55]">
             MELAGRAM MEMBER
@@ -89,14 +113,14 @@ const initials = displayName
 
           <p class="mx-auto mt-5 max-w-xl text-sm leading-7 text-white/60 md:text-base">
             Shape your Melagram identity. Update your name, username, bio,
-            and profile image.
+            and profile photo.
           </p>
         </section>
 
-        <!-- Main Card -->
-        <section class="luxury-panel gold-border overflow-hidden rounded-[2rem]">
+        <!-- MAIN CARD -->
+        <section class="luxury-panel gold-border overflow-hidden rounded-[2rem] shadow-[0_30px_100px_rgba(0,0,0,.5)]">
 
-          <!-- Profile Preview -->
+          <!-- PROFILE PREVIEW -->
           <div class="border-b border-[#d9ad55]/15 px-6 py-8 md:px-10">
             <div class="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
 
@@ -111,7 +135,9 @@ const initials = displayName
                     class="h-full w-full object-cover"
                   />
                 ) : (
-                  initials
+                  <div class="grid h-full w-full place-items-center">
+                    {initials}
+                  </div>
                 )}
               </div>
 
@@ -134,10 +160,11 @@ const initials = displayName
                   @{username || "username"}
                 </p>
               </div>
+
             </div>
           </div>
 
-          <!-- Form -->
+          <!-- FORM -->
           <form
             id="profile-form"
             method="POST"
@@ -145,14 +172,20 @@ const initials = displayName
             class="space-y-7 px-6 py-8 md:px-10 md:py-10"
           >
 
-            <!-- Result Message -->
+            <!-- RESULT MESSAGE -->
             {result?.data?.message && (
-              <div class="rounded-2xl border border-[#d9ad55]/30 bg-[#14091d]/80 px-5 py-4 text-sm text-[#ffe8a6]">
+              <div
+                class={`rounded-2xl border px-5 py-4 text-sm ${
+                  result.data.success
+                    ? "border-[#d9ad55]/30 bg-[#14091d]/80 text-[#ffe8a6]"
+                    : "border-red-400/30 bg-red-950/30 text-red-200"
+                }`}
+              >
                 {result.data.message}
               </div>
             )}
 
-            <!-- Full Name -->
+            <!-- FULL NAME -->
             <div>
               <label
                 for="full_name"
@@ -172,7 +205,7 @@ const initials = displayName
               />
             </div>
 
-            <!-- Username -->
+            <!-- USERNAME -->
             <div>
               <label
                 for="username"
@@ -204,7 +237,7 @@ const initials = displayName
               </p>
             </div>
 
-            <!-- Bio -->
+            <!-- BIO -->
             <div>
               <div class="mb-2 flex items-center justify-between">
                 <label
@@ -232,30 +265,64 @@ const initials = displayName
               >{bio}</textarea>
             </div>
 
-            <!-- Avatar URL -->
+            <!-- PROFILE PHOTO -->
             <div>
               <label
-                for="avatar_url"
-                class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-[#d9ad55]"
+                class="mb-3 block text-xs font-semibold uppercase tracking-[0.25em] text-[#d9ad55]"
               >
-                Profile Image URL
+                Profile Photo
               </label>
 
-              <input
-                id="avatar_url"
-                name="avatar_url"
-                type="url"
-                value={avatarUrl}
-                placeholder="https://example.com/your-photo.jpg"
-                class="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-white outline-none transition placeholder:text-white/30 focus:border-[#d9ad55]/70 focus:ring-1 focus:ring-[#d9ad55]/30"
-              />
+              <div class="flex flex-col gap-5 rounded-2xl border border-white/10 bg-black/20 p-5 sm:flex-row sm:items-center">
 
-              <p class="mt-2 text-xs leading-5 text-white/40">
-                Image uploads will be added later through Melagram storage.
-              </p>
+                <div
+                  class="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#d9ad55]/70 bg-[#14091d] text-2xl font-semibold text-[#ffe8a6]"
+                >
+                  <div id="upload-preview" class="h-full w-full">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={`${displayName} profile`}
+                        class="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div class="grid h-full w-full place-items-center">
+                        {initials}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div class="flex-1">
+                  <input
+                    id="avatar"
+                    name="avatar"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    class="hidden"
+                  />
+
+                  <label
+                    for="avatar"
+                    class="inline-flex cursor-pointer items-center justify-center rounded-full border border-[#d9ad55]/70 px-6 py-3 text-sm font-semibold text-[#ffe8a6] transition hover:bg-[#d9ad55]/10 hover:shadow-[0_0_25px_rgba(217,173,85,.12)]"
+                  >
+                    Choose Photo
+                  </label>
+
+                  <p class="mt-3 text-xs leading-5 text-white/40">
+                    JPG, PNG, WEBP, or GIF. Maximum 5MB.
+                  </p>
+
+                  <p
+                    id="avatar-message"
+                    class="mt-2 text-xs text-[#ffe8a6]"
+                  ></p>
+                </div>
+
+              </div>
             </div>
 
-            <!-- Actions -->
+            <!-- ACTIONS -->
             <div class="flex flex-col gap-3 border-t border-white/10 pt-7 sm:flex-row sm:justify-end">
 
               <a
@@ -266,6 +333,7 @@ const initials = displayName
               </a>
 
               <button
+                id="save-profile"
                 type="submit"
                 class="cta rounded-full px-7 py-3 text-sm font-semibold text-white"
               >
@@ -276,7 +344,7 @@ const initials = displayName
           </form>
         </section>
 
-        <!-- Footer -->
+        <!-- FOOTER -->
         <footer class="py-10 text-center">
           <div class="gold-line mx-auto mb-5 w-40"></div>
 
@@ -293,17 +361,52 @@ const initials = displayName
     </main>
 
     <script>
-      const bioInput = document.getElementById("bio") as HTMLTextAreaElement | null;
+      import { actions } from "astro:actions";
+
+      const form = document.getElementById("profile-form") as HTMLFormElement | null;
+
+      const bioInput =
+        document.getElementById("bio") as HTMLTextAreaElement | null;
+
       const bioCount = document.getElementById("bio-count");
 
-      const nameInput = document.getElementById("full_name") as HTMLInputElement | null;
-      const usernameInput = document.getElementById("username") as HTMLInputElement | null;
+      const nameInput =
+        document.getElementById("full_name") as HTMLInputElement | null;
+
+      const usernameInput =
+        document.getElementById("username") as HTMLInputElement | null;
 
       const namePreview = document.getElementById("name-preview");
-      const usernamePreview = document.getElementById("username-preview");
 
-      const avatarInput = document.getElementById("avatar_url") as HTMLInputElement | null;
-      const avatarPreview = document.getElementById("avatar-preview");
+      const usernamePreview =
+        document.getElementById("username-preview");
+
+      const avatarInput =
+        document.getElementById("avatar") as HTMLInputElement | null;
+
+      const avatarPreview =
+        document.getElementById("avatar-preview");
+
+      const uploadPreview =
+        document.getElementById("upload-preview");
+
+      const avatarMessage =
+        document.getElementById("avatar-message");
+
+      const saveButton =
+        document.getElementById("save-profile") as HTMLButtonElement | null;
+
+      let uploadedAvatarUrl = "";
+
+      function getInitials(name: string) {
+        return name
+          .trim()
+          .split(/\s+/)
+          .map((part) => part.charAt(0))
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
+      }
 
       function updateBioCount() {
         if (bioInput && bioCount) {
@@ -314,6 +417,32 @@ const initials = displayName
       function updateNamePreview() {
         if (nameInput && namePreview) {
           namePreview.textContent = nameInput.value || "Member";
+
+          if (!avatarInput?.files?.length) {
+            const initials = getInitials(nameInput.value || "Member");
+
+            if (avatarPreview) {
+              avatarPreview.innerHTML = "";
+
+              const initialsElement = document.createElement("div");
+              initialsElement.className =
+                "grid h-full w-full place-items-center";
+              initialsElement.textContent = initials;
+
+              avatarPreview.appendChild(initialsElement);
+            }
+
+            if (uploadPreview) {
+              uploadPreview.innerHTML = "";
+
+              const initialsElement = document.createElement("div");
+              initialsElement.className =
+                "grid h-full w-full place-items-center";
+              initialsElement.textContent = initials;
+
+              uploadPreview.appendChild(initialsElement);
+            }
+          }
         }
       }
 
@@ -324,43 +453,159 @@ const initials = displayName
         }
       }
 
-      function updateAvatarPreview() {
-        if (!avatarPreview || !avatarInput) return;
+      function showAvatarPreview(file: File) {
+        if (!avatarPreview || !uploadPreview) return;
 
-        const url = avatarInput.value.trim();
+        const objectUrl = URL.createObjectURL(file);
 
-        if (!url) {
-          const name = nameInput?.value || "Member";
+        avatarPreview.innerHTML = "";
+        uploadPreview.innerHTML = "";
 
-          const initials = name
-            .split(" ")
-            .map((part) => part.charAt(0))
-            .join("")
-            .slice(0, 2)
-            .toUpperCase();
+        const previewImage = document.createElement("img");
+        previewImage.src = objectUrl;
+        previewImage.alt = "Profile photo preview";
+        previewImage.className = "h-full w-full object-cover";
 
-          avatarPreview.innerHTML = initials;
+        const previewImage2 = previewImage.cloneNode(true) as HTMLImageElement;
+
+        avatarPreview.appendChild(previewImage);
+        uploadPreview.appendChild(previewImage2);
+
+        avatarMessage &&
+          (avatarMessage.textContent = "Photo selected. Save Changes to upload it.");
+      }
+
+      avatarInput?.addEventListener("change", () => {
+        const file = avatarInput.files?.[0];
+
+        if (!file) return;
+
+        const allowedTypes = [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+        ];
+
+        if (!allowedTypes.includes(file.type)) {
+          avatarInput.value = "";
+
+          if (avatarMessage) {
+            avatarMessage.textContent =
+              "Please choose a JPG, PNG, WEBP, or GIF image.";
+          }
+
           return;
         }
 
-        avatarPreview.innerHTML = "";
+        if (file.size > 5 * 1024 * 1024) {
+          avatarInput.value = "";
 
-        const image = document.createElement("img");
-        image.src = url;
-        image.alt = "Profile preview";
-        image.className = "h-full w-full object-cover";
+          if (avatarMessage) {
+            avatarMessage.textContent =
+              "Profile photos must be 5MB or smaller.";
+          }
 
-        image.onerror = () => {
-          avatarPreview.innerHTML = "ME";
-        };
+          return;
+        }
 
-        avatarPreview.appendChild(image);
-      }
+        showAvatarPreview(file);
+      });
+
+      form?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (!form || !saveButton) return;
+
+        saveButton.disabled = true;
+        saveButton.textContent = "Saving...";
+
+        if (avatarMessage) {
+          avatarMessage.textContent = "";
+        }
+
+        try {
+          const file = avatarInput?.files?.[0];
+
+          if (file) {
+            if (avatarMessage) {
+              avatarMessage.textContent = "Uploading your photo...";
+            }
+
+            const avatarForm = new FormData();
+            avatarForm.append("avatar", file);
+
+            const uploadResult = await actions.uploadAvatar(avatarForm);
+
+            if (uploadResult.error) {
+              throw new Error(
+                uploadResult.error.message ||
+                  "We couldn't upload your profile photo."
+              );
+            }
+
+            if (!uploadResult.data?.success) {
+              throw new Error(
+                uploadResult.data?.message ||
+                  "We couldn't upload your profile photo."
+              );
+            }
+
+            uploadedAvatarUrl = uploadResult.data.avatarUrl || "";
+
+            if (avatarMessage) {
+              avatarMessage.textContent =
+                "Photo uploaded. Saving your profile...";
+            }
+          }
+
+          const profileForm = new FormData(form);
+
+          if (uploadedAvatarUrl) {
+            profileForm.set("avatar_url", uploadedAvatarUrl);
+          } else {
+            profileForm.set("avatar_url", "");
+          }
+
+          profileForm.delete("avatar");
+
+          const updateResult = await actions.updateProfile(profileForm);
+
+          if (updateResult.error) {
+            throw new Error(
+              updateResult.error.message ||
+                "We couldn't update your profile."
+            );
+          }
+
+          if (!updateResult.data?.success) {
+            throw new Error(
+              updateResult.data?.message ||
+                "We couldn't update your profile."
+            );
+          }
+
+          window.location.href = "/profile";
+        } catch (error) {
+          console.error("Profile update error:", error);
+
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Something went wrong while updating your profile.";
+
+          if (avatarMessage) {
+            avatarMessage.textContent = message;
+          }
+
+          saveButton.disabled = false;
+          saveButton.textContent = "Save Changes";
+        }
+      });
 
       bioInput?.addEventListener("input", updateBioCount);
       nameInput?.addEventListener("input", updateNamePreview);
       usernameInput?.addEventListener("input", updateUsernamePreview);
-      avatarInput?.addEventListener("input", updateAvatarPreview);
 
       updateBioCount();
     </script>
