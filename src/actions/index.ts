@@ -43,11 +43,13 @@ export const server = {
         });
 
         if (error) {
-          return {
-            success: false,
-            message: error.message,
-          };
-        }
+  console.error("Supabase signup error:", error);
+
+  return {
+    success: false,
+    message: error.message,
+  };
+}
 
         return {
           success: true,
