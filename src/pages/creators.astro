@@ -1,0 +1,463 @@
+---
+import "../styles/global.css";
+
+const creatorCategories = [
+  {
+    icon: "♪",
+    title: "Music",
+    subtitle: "Artists • Producers • DJs",
+    description: "Artists, producers, singers, and sound creators."
+  },
+  {
+    icon: "✒",
+    title: "Writing",
+    subtitle: "Authors • Poets • Storytellers",
+    description: "Authors, poets, bloggers, and storytellers."
+  },
+  {
+    icon: "◈",
+    title: "Art & Design",
+    subtitle: "Artists • Designers • Visual Creators",
+    description: "Visual artists, designers, illustrators, and creatives."
+  },
+  {
+    icon: "▣",
+    title: "Film & Video",
+    subtitle: "Filmmakers • Directors • Video Creators",
+    description: "Filmmakers, directors, editors, and video creators."
+  },
+  {
+    icon: "♬",
+    title: "Podcasting",
+    subtitle: "Hosts • Commentators • Broadcasters",
+    description: "Hosts, commentators, and audio content creators."
+  },
+  {
+    icon: "▢",
+    title: "Business",
+    subtitle: "Founders • Entrepreneurs • Visionaries",
+    description: "Entrepreneurs, founders, coaches, and visionaries."
+  }
+];
+
+const featuredCreators = [
+  {
+    initials: "PR",
+    name: "Petty Rich Bey",
+    category: "Music • Media",
+    description: "Artist, creator, storyteller, and media personality.",
+    badge: "Featured"
+  },
+  {
+    initials: "AR",
+    name: "Avery Rose",
+    category: "Art • Design",
+    description: "Visual artist creating bold worlds through color and design.",
+    badge: "Rising"
+  },
+  {
+    initials: "JM",
+    name: "Jordan Miles",
+    category: "Writing",
+    description: "Writer and storyteller exploring culture, identity, and life.",
+    badge: "New"
+  }
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content="Enter the Creators Vault — discover the artists, storytellers, visionaries, and creators of Melagram."
+    />
+    <title>Creators Vault — Melagram</title>
+  </head>
+
+  <body>
+    <div class="min-h-screen overflow-hidden bg-[#050208] text-white">
+
+      <!-- TOP GOLD FRAME -->
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+      <!-- NAVIGATION -->
+      <header class="relative z-30 border-b border-[#d9ad55]/30 bg-[#050208]/95 backdrop-blur">
+
+        <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-10">
+
+          <a href="/" class="flex items-center gap-3">
+
+            <div class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-xl text-[#ffe8a6]">
+              ♔
+            </div>
+
+            <span class="display hidden text-lg tracking-[.2em] text-[#ffe8a6] sm:block">
+              MELAGRAM
+            </span>
+
+          </a>
+
+          <div class="hidden items-center gap-7 text-[10px] font-bold uppercase tracking-[.22em] text-white/70 md:flex">
+
+            <a class="nav-link" href="/">Home</a>
+
+            <a class="nav-link" href="/discover">
+              Discover
+            </a>
+
+            <a class="nav-link" href="/communities">
+              Communities
+            </a>
+
+            <a class="nav-link text-[#ffe8a6]" href="/creators">
+              Creators Vault
+            </a>
+
+            <a class="nav-link" href="/#about">
+              About
+            </a>
+
+          </div>
+
+          <div class="flex items-center gap-3">
+
+            <a
+              href="#"
+              class="hidden text-[10px] font-bold uppercase tracking-wider text-white/60 sm:block"
+            >
+              Log In
+            </a>
+
+            <a
+              href="/#join"
+              class="rounded-lg border border-[#d9ad55]/70 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black"
+            >
+              Join Melagram
+            </a>
+
+          </div>
+
+        </nav>
+
+      </header>
+
+      <!-- PALACE HERO -->
+      <main>
+
+        <section class="relative overflow-hidden bg-[#08030d]">
+
+          <!-- PURPLE ATMOSPHERE -->
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(109,25,201,.38),transparent_55%)]"></div>
+
+          <!-- VELVET CURTAIN EFFECT -->
+          <div class="absolute left-0 top-0 h-[520px] w-1/3 bg-[radial-gradient(ellipse_at_top,rgba(76,11,145,.5),transparent_68%)]"></div>
+
+          <div class="absolute right-0 top-0 h-[520px] w-1/3 bg-[radial-gradient(ellipse_at_top,rgba(76,11,145,.5),transparent_68%)]"></div>
+
+          <div class="relative mx-auto max-w-7xl px-4 pb-0 pt-8 sm:px-6 lg:px-10">
+
+            <!-- ARCHITECTURAL FRAME -->
+            <div class="relative mx-auto max-w-6xl overflow-hidden border-x border-[#d9ad55]/40">
+
+              <!-- GOLD TOP ARCH -->
+              <div class="absolute left-1/2 top-5 h-[420px] w-[82%] -translate-x-1/2 rounded-t-[400px] border-4 border-b-0 border-[#d9ad55]/80 bg-gradient-to-b from-[#261033] to-[#100618] shadow-[0_0_70px_rgba(109,25,201,.3)] sm:h-[500px] sm:w-[70%]"></div>
+
+              <!-- SIDE COLUMNS -->
+              <div class="absolute left-4 top-16 hidden h-[390px] w-12 border-x-4 border-[#d9ad55]/50 bg-gradient-to-b from-[#3b1553] to-[#160722] sm:block"></div>
+
+              <div class="absolute right-4 top-16 hidden h-[390px] w-12 border-x-4 border-[#d9ad55]/50 bg-gradient-to-b from-[#3b1553] to-[#160722] sm:block"></div>
+
+              <!-- CENTER PORTAL -->
+              <div class="relative mx-auto max-w-3xl px-4 pt-14 sm:pt-20">
+
+                <div class="relative overflow-hidden rounded-t-[180px] border-4 border-[#d9ad55]/80 bg-gradient-to-b from-[#fff0c5] via-[#d9ad55] to-[#8c6322] px-6 pb-14 pt-20 text-center shadow-[0_0_60px_rgba(217,173,85,.18)] sm:rounded-t-[300px] sm:px-12 sm:pb-20 sm:pt-28">
+
+                  <div class="absolute inset-3 rounded-t-[170px] border border-[#6f4614]/50 sm:rounded-t-[290px]"></div>
+
+                  <div class="relative">
+
+                    <div class="text-3xl text-[#6f4614] sm:text-4xl">
+                      ♔
+                    </div>
+
+                    <p class="mt-5 text-[9px] font-bold uppercase tracking-[.55em] text-[#241608]">
+                      THE MELAGRAM
+                    </p>
+
+                    <h1 class="display mt-3 text-5xl leading-none tracking-[.08em] text-[#100b08] sm:text-7xl">
+                      CREATORS
+                    </h1>
+
+                    <h2 class="display mt-1 text-4xl tracking-[.15em] text-[#241608] sm:text-6xl">
+                      VAULT
+                    </h2>
+
+                    <div class="mx-auto mt-6 h-px w-24 bg-[#6f4614]"></div>
+
+                    <p class="mx-auto mt-6 max-w-lg text-[11px] font-semibold uppercase leading-6 tracking-[.16em] text-[#241608] sm:text-sm">
+                      Discover the people creating what comes next.
+                    </p>
+
+                    <p class="mx-auto mt-4 max-w-md text-xs leading-6 text-[#3b2915]">
+                      A curated collection of exceptional creators,
+                      innovators, storytellers, and visionaries.
+                    </p>
+
+                    <a
+                      href="#collection"
+                      class="mt-8 inline-flex rounded-xl border-2 border-[#d9ad55] bg-gradient-to-r from-[#3b0a68] to-[#17052a] px-8 py-4 text-[10px] font-bold uppercase tracking-[.2em] text-[#ffe8a6] shadow-[0_8px_25px_rgba(0,0,0,.3)] transition hover:-translate-y-1 hover:shadow-[0_12px_35px_rgba(109,25,201,.35)]"
+                    >
+                      Enter the Vault
+                    </a>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <!-- GOLD CURVE -->
+              <div class="relative -mt-1 h-16 bg-[#050208]">
+
+                <div class="absolute -top-8 left-1/2 h-16 w-[90%] -translate-x-1/2 rounded-[50%] border-t-4 border-[#d9ad55]"></div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- CATEGORY COLLECTION -->
+        <section class="relative bg-[#050208] px-4 pb-16 sm:px-6 lg:px-10">
+
+          <div class="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_center,rgba(109,25,201,.15),transparent_70%)]"></div>
+
+          <div class="relative mx-auto max-w-7xl">
+
+            <div class="grid border-b border-[#d9ad55]/20 md:grid-cols-2 lg:grid-cols-3">
+
+              {creatorCategories.map((category, index) => (
+
+                <a
+                  href="#collection"
+                  class="group relative border-[#d9ad55]/20 px-6 py-9 text-center transition hover:bg-[#100618]/70 lg:px-8"
+                >
+
+                  {index > 0 && (
+                    <div class="absolute left-0 top-1/2 hidden h-2/3 -translate-y-1/2 border-l border-[#d9ad55]/20 md:block"></div>
+                  )}
+
+                  <div class="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-[#d9ad55]/70 bg-gradient-to-br from-[#341052] to-[#100618] text-3xl text-[#ffe8a6] shadow-[0_0_25px_rgba(109,25,201,.2)] transition group-hover:scale-105">
+                    {category.icon}
+                  </div>
+
+                  <h3 class="display mt-5 text-2xl text-[#ffe8a6]">
+                    {category.title}
+                  </h3>
+
+                  <p class="mt-2 text-[8px] font-bold uppercase tracking-[.15em] text-[#d9ad55]">
+                    {category.subtitle}
+                  </p>
+
+                  <p class="mx-auto mt-4 max-w-xs text-xs leading-6 text-white/40">
+                    {category.description}
+                  </p>
+
+                  <span class="mt-5 inline-block text-[9px] font-bold uppercase tracking-[.2em] text-[#ffe8a6] transition group-hover:text-white">
+                    Enter →
+                  </span>
+
+                </a>
+
+              ))}
+
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- FEATURED CREATORS -->
+        <section
+          id="collection"
+          class="relative overflow-hidden bg-[#050208] px-5 py-16 sm:px-6 lg:px-10 lg:py-20"
+        >
+
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(109,25,201,.16),transparent_55%)]"></div>
+
+          <div class="relative mx-auto max-w-7xl">
+
+            <!-- SECTION TITLE -->
+            <div class="mb-12 flex items-center gap-4">
+
+              <div class="gold-line flex-1"></div>
+
+              <h2 class="display shrink-0 text-2xl tracking-[.15em] text-[#ffe8a6] sm:text-4xl">
+                FEATURED CREATORS
+              </h2>
+
+              <div class="gold-line flex-1"></div>
+
+            </div>
+
+            <p class="mx-auto -mt-6 mb-10 max-w-xl text-center text-sm text-white/40">
+              Highlighting creators making an impact on Melagram.
+            </p>
+
+            <!-- CREATOR CARDS -->
+            <div class="grid gap-6 md:grid-cols-3">
+
+              {featuredCreators.map((creator) => (
+
+                <article class="group relative border border-[#d9ad55]/50 bg-gradient-to-b from-[#180b24] to-[#08040d] p-5 shadow-[0_15px_45px_rgba(0,0,0,.35)] transition hover:-translate-y-2 hover:border-[#d9ad55]">
+
+                  <!-- ORNAMENT CORNERS -->
+                  <div class="absolute left-2 top-2 h-7 w-7 border-l border-t border-[#d9ad55]"></div>
+                  <div class="absolute right-2 top-2 h-7 w-7 border-r border-t border-[#d9ad55]"></div>
+                  <div class="absolute bottom-2 left-2 h-7 w-7 border-b border-l border-[#d9ad55]"></div>
+                  <div class="absolute bottom-2 right-2 h-7 w-7 border-b border-r border-[#d9ad55]"></div>
+
+                  <div class="relative">
+
+                    <!-- PROFILE MEDALLION -->
+                    <div class="mx-auto grid h-36 w-36 place-items-center rounded-full border-4 border-[#d9ad55]/80 bg-gradient-to-br from-[#32104d] to-[#0b040f] text-3xl font-bold text-[#ffe8a6] shadow-[0_0_35px_rgba(109,25,201,.25)]">
+                      {creator.initials}
+                    </div>
+
+                    <div class="mx-auto -mt-5 grid h-11 w-11 place-items-center rounded-full border-2 border-[#d9ad55] bg-[#2b0c48] text-[#ffe8a6]">
+                      ♔
+                    </div>
+
+                    <div class="text-center">
+
+                      <span class="mt-5 inline-block text-[8px] font-bold uppercase tracking-[.25em] text-[#d9ad55]">
+                        {creator.badge}
+                      </span>
+
+                      <h3 class="display mt-2 text-2xl text-[#ffe8a6]">
+                        {creator.name}
+                      </h3>
+
+                      <p class="mt-2 text-[9px] font-bold uppercase tracking-[.18em] text-[#d9ad55]">
+                        {creator.category}
+                      </p>
+
+                      <p class="mx-auto mt-4 max-w-xs text-xs leading-6 text-white/40">
+                        {creator.description}
+                      </p>
+
+                      <a
+                        href="#"
+                        class="mt-6 inline-flex rounded-full border border-[#d9ad55]/70 px-6 py-2.5 text-[9px] font-bold uppercase tracking-[.2em] text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black"
+                      >
+                        View Profile
+                      </a>
+
+                    </div>
+
+                  </div>
+
+                </article>
+
+              ))}
+
+            </div>
+
+            <!-- CAROUSEL INDICATORS -->
+            <div class="mt-8 flex justify-center gap-2">
+
+              <span class="h-2.5 w-2.5 rounded-full bg-[#d9ad55]"></span>
+
+              <span class="h-2.5 w-2.5 rounded-full border border-[#d9ad55]/50"></span>
+
+              <span class="h-2.5 w-2.5 rounded-full border border-[#d9ad55]/50"></span>
+
+              <span class="h-2.5 w-2.5 rounded-full border border-[#d9ad55]/50"></span>
+
+              <span class="h-2.5 w-2.5 rounded-full border border-[#d9ad55]/50"></span>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- CREATOR CTA -->
+        <section class="relative px-5 pb-20 pt-8 lg:px-10 lg:pb-28">
+
+          <div class="relative mx-auto max-w-6xl overflow-hidden border border-[#d9ad55]/60 bg-gradient-to-r from-[#100618] via-[#24102f] to-[#100618] px-6 py-8 sm:px-10">
+
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(109,25,201,.2),transparent_65%)]"></div>
+
+            <div class="relative flex flex-col items-center gap-7 text-center md:flex-row md:justify-center md:text-left">
+
+              <div class="grid h-20 w-20 shrink-0 place-items-center rounded-full border-2 border-[#d9ad55] bg-[#160722] text-3xl text-[#ffe8a6] shadow-[0_0_30px_rgba(109,25,201,.2)]">
+                ♔
+              </div>
+
+              <div>
+
+                <p class="text-[9px] font-bold uppercase tracking-[.4em] text-[#d9ad55]">
+                  Are You A Creator?
+                </p>
+
+                <h2 class="display mt-2 text-2xl text-[#ffe8a6]">
+                  Your work belongs here.
+                </h2>
+
+                <p class="mt-2 max-w-md text-sm text-white/40">
+                  Join Melagram and get your work seen by the right people.
+                </p>
+
+              </div>
+
+              <a
+                href="/#join"
+                class="rounded-xl border border-[#d9ad55] bg-gradient-to-b from-[#ffe8a6] to-[#c6973e] px-7 py-3 text-[10px] font-bold uppercase tracking-[.18em] text-black shadow-[0_8px_20px_rgba(0,0,0,.3)] transition hover:-translate-y-1"
+              >
+                Join Melagram
+              </a>
+
+            </div>
+
+          </div>
+
+        </section>
+
+      </main>
+
+      <!-- FOOTER -->
+      <footer class="border-t border-[#d9ad55]/20 bg-[#050208] px-5 py-10 lg:px-10">
+
+        <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
+
+          <div>
+
+            <p class="display text-lg tracking-[.2em] text-[#ffe8a6]">
+              MELAGRAM
+            </p>
+
+            <p class="mt-1 text-[10px] uppercase tracking-[.3em] text-white/35">
+              Connect. Network. Create. Build Community.
+            </p>
+
+          </div>
+
+          <p class="text-xs text-white/30">
+            © 2026 Melagram. All rights reserved.
+          </p>
+
+        </div>
+
+      </footer>
+
+      <!-- BOTTOM GOLD FRAME -->
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+    </div>
+  </body>
+</html>
