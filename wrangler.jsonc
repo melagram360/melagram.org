@@ -16,8 +16,9 @@
     "binding": "ASSETS",
     "directory": "dist"
   },
-
   "observability": {
     "enabled": true
   }
+
+  // Supabase configuration is provided through Cloudflare build variables.
 }
