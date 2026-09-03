@@ -1,0 +1,303 @@
+---
+import "../styles/global.css";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Join Melagram</title>
+    <meta
+      name="description"
+      content="Create your Melagram account and join a community built to connect, create, network, and grow."
+    />
+  </head>
+
+  <body>
+    <div class="min-h-screen overflow-hidden bg-[#050208] text-[#fff7e5]">
+
+      <!-- NAV -->
+      <header class="relative z-20 border-b border-[#d9ad55]/30 bg-[#07030d]/90 backdrop-blur">
+        <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-10">
+
+          <a href="/" class="flex items-center gap-3" aria-label="Melagram Home">
+            <div class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#1a0827] text-[#ffe8a6] shadow-[0_0_18px_rgba(109,25,201,.4)]">
+              M
+            </div>
+
+            <div>
+              <div class="font-serif text-sm font-bold tracking-[.2em] text-[#ffe8a6]">
+                MELAGRAM
+              </div>
+              <div class="text-[8px] uppercase tracking-[.25em] text-white/35">
+                Connect. Create. Build.
+              </div>
+            </div>
+          </a>
+
+          <a
+            href="/"
+            class="text-[10px] font-bold uppercase tracking-[.2em] text-white/50 transition hover:text-[#ffe8a6]"
+          >
+            ← Back Home
+          </a>
+
+        </nav>
+      </header>
+
+
+      <!-- HERO / SIGN UP -->
+      <main class="relative flex min-h-[calc(100vh-81px)] items-center justify-center px-5 py-14 sm:py-20">
+
+        <!-- Ambient glow -->
+        <div class="pointer-events-none absolute left-1/2 top-0 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-[#6d19c9]/15 blur-3xl"></div>
+
+        <div class="pointer-events-none absolute left-1/2 top-20 h-[420px] w-[420px] -translate-x-1/2 rounded-full border border-[#d9ad55]/10"></div>
+
+        <div class="pointer-events-none absolute left-1/2 top-28 h-[340px] w-[340px] -translate-x-1/2 rounded-full border border-[#d9ad55]/10"></div>
+
+
+        <!-- CONTENT -->
+        <div class="relative z-10 w-full max-w-5xl">
+
+          <div class="grid items-center gap-12 lg:grid-cols-[1fr_460px]">
+
+
+            <!-- LEFT SIDE -->
+            <section class="hidden lg:block">
+
+              <div class="mb-6 flex items-center gap-3">
+                <div class="h-px w-14 bg-[#d9ad55]"></div>
+                <span class="text-[10px] font-bold uppercase tracking-[.35em] text-[#d9ad55]">
+                  Welcome to Melagram
+                </span>
+              </div>
+
+              <h1 class="max-w-xl text-5xl font-semibold leading-[1.05] text-[#fff7e5] xl:text-6xl">
+                Your people
+                <span class="block text-[#ffe8a6]">are waiting.</span>
+              </h1>
+
+              <p class="mt-7 max-w-lg text-base leading-8 text-white/50">
+                Join a platform built for real connections, creative expression,
+                meaningful communities, and people who want to build something together.
+              </p>
+
+
+              <div class="mt-10 grid max-w-lg grid-cols-2 gap-4">
+
+                <div class="luxury-panel gold-border rounded-2xl p-5">
+                  <div class="text-2xl text-[#ffe8a6]">♛</div>
+                  <div class="mt-3 text-xs font-bold uppercase tracking-[.18em] text-white">
+                    Find Your People
+                  </div>
+                  <p class="mt-2 text-xs leading-6 text-white/40">
+                    Discover communities built around what you love.
+                  </p>
+                </div>
+
+                <div class="luxury-panel gold-border rounded-2xl p-5">
+                  <div class="text-2xl text-[#ffe8a6]">✦</div>
+                  <div class="mt-3 text-xs font-bold uppercase tracking-[.18em] text-white">
+                    Make Your Mark
+                  </div>
+                  <p class="mt-2 text-xs leading-6 text-white/40">
+                    Share your ideas, creativity, stories, and work.
+                  </p>
+                </div>
+
+              </div>
+
+            </section>
+
+
+            <!-- SIGN UP CARD -->
+            <section class="luxury-panel gold-border rounded-3xl p-6 shadow-[0_25px_80px_rgba(0,0,0,.45)] sm:p-8">
+
+              <div class="mb-8 text-center">
+
+                <div class="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full border-2 border-[#d9ad55]/70 bg-[#160722] text-2xl text-[#ffe8a6] shadow-[0_0_30px_rgba(109,25,201,.35)]">
+                  M
+                </div>
+
+                <p class="text-[9px] font-bold uppercase tracking-[.3em] text-[#d9ad55]">
+                  Create Your Account
+                </p>
+
+                <h2 class="mt-3 text-3xl font-semibold text-[#fff7e5]">
+                  Join Melagram
+                </h2>
+
+                <p class="mt-3 text-sm leading-6 text-white/40">
+                  Your account. Your communities. Your world.
+                </p>
+
+              </div>
+
+
+              <!-- FORM -->
+              <form class="space-y-5">
+
+                <div>
+                  <label
+                    for="name"
+                    class="mb-2 block text-[9px] font-bold uppercase tracking-[.2em] text-white/55"
+                  >
+                    Full Name
+                  </label>
+
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    placeholder="Your name"
+                    autocomplete="name"
+                    class="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-[#d9ad55]/70 focus:bg-black/40"
+                  />
+                </div>
+
+
+                <div>
+                  <label
+                    for="username"
+                    class="mb-2 block text-[9px] font-bold uppercase tracking-[.2em] text-white/55"
+                  >
+                    Username
+                  </label>
+
+                  <div class="relative">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#d9ad55]">
+                      @
+                    </span>
+
+                    <input
+                      id="username"
+                      name="username"
+                      type="text"
+                      placeholder="chooseyourname"
+                      autocomplete="username"
+                      class="w-full rounded-xl border border-white/10 bg-black/30 py-3.5 pl-9 pr-4 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-[#d9ad55]/70 focus:bg-black/40"
+                    />
+                  </div>
+                </div>
+
+
+                <div>
+                  <label
+                    for="email"
+                    class="mb-2 block text-[9px] font-bold uppercase tracking-[.2em] text-white/55"
+                  >
+                    Email Address
+                  </label>
+
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    autocomplete="email"
+                    class="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-[#d9ad55]/70 focus:bg-black/40"
+                  />
+                </div>
+
+
+                <div>
+                  <label
+                    for="password"
+                    class="mb-2 block text-[9px] font-bold uppercase tracking-[.2em] text-white/55"
+                  >
+                    Password
+                  </label>
+
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Create a password"
+                    autocomplete="new-password"
+                    class="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-[#d9ad55]/70 focus:bg-black/40"
+                  />
+                </div>
+
+
+                <label class="flex items-start gap-3 pt-1">
+
+                  <input
+                    type="checkbox"
+                    name="terms"
+                    class="mt-0.5 h-4 w-4 rounded border-white/20 bg-black/30 accent-[#6d19c9]"
+                  />
+
+                  <span class="text-[11px] leading-5 text-white/40">
+                    I agree to the Melagram
+                    <a href="#" class="text-[#ffe8a6] hover:underline">
+                      Terms of Service
+                    </a>
+                    and
+                    <a href="#" class="text-[#ffe8a6] hover:underline">
+                      Privacy Policy
+                    </a>.
+                  </span>
+
+                </label>
+
+
+                <button
+                  type="submit"
+                  class="cta w-full rounded-xl px-6 py-4 text-xs font-bold uppercase tracking-[.2em] text-white"
+                >
+                  Create My Account
+                </button>
+
+              </form>
+
+
+              <!-- DIVIDER -->
+              <div class="my-7 flex items-center gap-4">
+                <div class="h-px flex-1 bg-white/10"></div>
+                <span class="text-[9px] uppercase tracking-[.2em] text-white/25">
+                  Already a member?
+                </span>
+                <div class="h-px flex-1 bg-white/10"></div>
+              </div>
+
+
+              <a
+                href="/login"
+                class="block w-full rounded-xl border border-[#d9ad55]/35 bg-black/20 px-6 py-3.5 text-center text-xs font-bold uppercase tracking-[.2em] text-[#ffe8a6] transition hover:border-[#d9ad55]/70 hover:bg-[#d9ad55]/5"
+              >
+                Log In
+              </a>
+
+            </section>
+
+          </div>
+
+        </div>
+
+      </main>
+
+
+      <!-- FOOTER -->
+      <footer class="border-t border-[#d9ad55]/20 bg-[#07030d] px-5 py-8">
+
+        <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+
+          <p class="text-[9px] uppercase tracking-[.25em] text-white/25">
+            © 2026 Melagram. Connect. Network. Create. Build Community.
+          </p>
+
+          <a
+            href="/"
+            class="text-[9px] font-bold uppercase tracking-[.2em] text-[#d9ad55] hover:text-[#ffe8a6]"
+          >
+            Melagram
+          </a>
+
+        </div>
+
+      </footer>
+
+    </div>
+  </body>
+</html>
