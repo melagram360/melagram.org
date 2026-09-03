@@ -1,5 +1,8 @@
 ---
 import "../styles/global.css";
+import { actions } from "astro:actions";
+
+const result = Astro.getActionResult(actions.signUp);
 ---
 
 <html lang="en">
@@ -136,7 +139,22 @@ import "../styles/global.css";
 
 
               <!-- FORM -->
-              <form class="space-y-5">
+              <form
+  method="POST"
+  action={actions.signUp}
+  class="space-y-5"
+>
+{result?.data?.success && (
+  <div class="rounded-xl border border-[#d9ad55]/40 bg-[#d9ad55]/5 px-4 py-3 text-sm leading-6 text-[#ffe8a6]">
+    {result.data.message}
+  </div>
+)}
+
+{result?.data?.success === false && (
+  <div class="rounded-xl border border-red-400/30 bg-red-500/5 px-4 py-3 text-sm leading-6 text-red-200">
+    {result.data.message}
+  </div>
+)}
 
                 <div>
                   <label

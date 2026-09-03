@@ -1,0 +1,272 @@
+---
+import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+import { actions } from "astro:actions";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const displayName =
+  user.user_metadata?.full_name ||
+  user.user_metadata?.username ||
+  user.email?.split("@")[0] ||
+  "Member";
+
+  const signOutResult = Astro.getActionResult(actions.signOut);
+
+if (signOutResult?.data?.success) {
+  return Astro.redirect("/");
+}
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Melagram — Dashboard</title>
+  </head>
+
+  <body>
+    <main class="min-h-screen bg-[#050208] text-[#fff7e5]">
+      <!-- Navigation -->
+      <nav class="border-b border-[#d9ad55]/20 bg-black/40 backdrop-blur-xl">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
+          <a href="/" class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full border border-[#d9ad55]/60 bg-[#6d19c9]/20 text-lg font-semibold text-[#ffe8a6]">
+              M
+            </div>
+
+            <span class="font-['Cinzel'] text-lg tracking-[0.18em] text-[#ffe8a6]">
+              MELAGRAM
+            </span>
+          </a>
+
+          <div class="hidden items-center gap-7 text-sm text-white/70 md:flex">
+            <a href="/discover" class="nav-link">Discover</a>
+            <a href="/communities" class="nav-link">Communities</a>
+            <a href="/creators" class="nav-link">Creators</a>
+          </div>
+
+          <div class="flex items-center gap-2">
+  <a
+    href="/profile"
+    class="rounded-full border border-[#d9ad55]/50 px-4 py-2 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+  >
+    {displayName}
+  </a>
+
+ <button
+  id="signout-btn"
+  type="button"
+  class="rounded-full border border-white/15 px-4 py-2 text-sm text-white/60 transition hover:border-[#d9ad55]/50 hover:text-[#ffe8a6]"
+>
+  Sign Out
+</button>
+</div>
+      </nav>
+
+      <!-- Welcome -->
+      <section class="relative overflow-hidden">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(109,25,201,.28),transparent_42rem)]"></div>
+
+        <div class="relative mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:py-20">
+          <div class="max-w-3xl">
+            <p class="mb-4 text-xs font-semibold uppercase tracking-[0.35em] text-[#d9ad55]">
+              Your Melagram
+            </p>
+
+            <h1 class="text-4xl font-semibold leading-tight text-[#ffe8a6] sm:text-5xl lg:text-6xl">
+              Welcome Home.
+            </h1>
+
+            <p class="mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg">
+              This is your space to connect, discover new people, build
+              communities, and share what makes you uniquely you.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="mx-auto max-w-7xl px-5 pb-12 sm:px-8">
+        <div class="grid gap-5 md:grid-cols-3">
+          <a
+            href="/discover"
+            class="feature-card gold-border luxury-panel rounded-2xl p-6"
+          >
+            <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
+              Explore
+            </p>
+
+            <h2 class="mt-3 text-2xl text-[#ffe8a6]">
+              Discover
+            </h2>
+
+            <p class="mt-3 text-sm leading-7 text-white/60">
+              Find creators, communities, conversations, and people worth
+              connecting with.
+            </p>
+          </a>
+
+          <a
+            href="/communities"
+            class="feature-card gold-border luxury-panel rounded-2xl p-6"
+          >
+            <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
+              Belong
+            </p>
+
+            <h2 class="mt-3 text-2xl text-[#ffe8a6]">
+              Communities
+            </h2>
+
+            <p class="mt-3 text-sm leading-7 text-white/60">
+              Step into conversations built around the things you love.
+            </p>
+          </a>
+
+          <a
+            href="/creators"
+            class="feature-card gold-border luxury-panel rounded-2xl p-6"
+          >
+            <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
+              Create
+            </p>
+
+            <h2 class="mt-3 text-2xl text-[#ffe8a6]">
+              Creators Vault
+            </h2>
+
+            <p class="mt-3 text-sm leading-7 text-white/60">
+              Discover creative work and eventually showcase your own.
+            </p>
+          </a>
+        </div>
+      </section>
+
+      <!-- Feed Preview -->
+      <section class="mx-auto max-w-7xl px-5 pb-20 sm:px-8">
+        <div class="grid gap-8 lg:grid-cols-[1fr_320px]">
+          <div>
+            <div class="mb-5 flex items-end justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
+                  Coming Soon
+                </p>
+
+                <h2 class="mt-2 text-3xl text-[#ffe8a6]">
+                  Your Feed
+                </h2>
+              </div>
+            </div>
+
+            <div class="gold-border luxury-panel rounded-2xl p-7 sm:p-9">
+              <div class="gold-line mb-7"></div>
+
+              <h3 class="text-2xl text-[#ffe8a6]">
+                Your Melagram starts here.
+              </h3>
+
+              <p class="mt-4 max-w-2xl text-sm leading-7 text-white/60">
+                Soon you'll see posts from the people and communities you
+                follow right here. Your timeline will become the heartbeat of
+                your Melagram experience.
+              </p>
+
+              <div class="mt-7 flex flex-wrap gap-3">
+                <a
+                  href="/discover"
+                  class="cta rounded-full px-6 py-3 text-sm font-semibold text-white"
+                >
+                  Start Exploring
+                </a>
+
+                <a
+                  href="/communities"
+                  class="rounded-full border border-[#d9ad55]/40 px-6 py-3 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+                >
+                  Browse Communities
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sidebar -->
+          <aside class="gold-border luxury-panel rounded-2xl p-6">
+            <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
+              Member Area
+            </p>
+
+            <h2 class="mt-3 text-2xl text-[#ffe8a6]">
+              Your Space
+            </h2>
+
+            <div class="gold-line my-5"></div>
+
+            <div class="space-y-4 text-sm text-white/60">
+              <div class="rounded-xl border border-white/10 bg-black/20 p-4">
+                <p class="text-[#ffe8a6]">Profile</p>
+                <p class="mt-1">Customize your Melagram identity.</p>
+              </div>
+
+              <div class="rounded-xl border border-white/10 bg-black/20 p-4">
+                <p class="text-[#ffe8a6]">Connections</p>
+                <p class="mt-1">Your followers and people you follow.</p>
+              </div>
+
+              <div class="rounded-xl border border-white/10 bg-black/20 p-4">
+                <p class="text-[#ffe8a6]">Notifications</p>
+                <p class="mt-1">Stay connected to what matters.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="border-t border-[#d9ad55]/15 px-5 py-8 sm:px-8">
+        <div class="mx-auto flex max-w-7xl flex-col gap-3 text-sm text-white/40 sm:flex-row sm:items-center sm:justify-between">
+          <p>© 2026 Melagram. Connect. Network. Create. Build Community.</p>
+
+          <a href="/" class="text-[#d9ad55] hover:text-[#ffe8a6]">
+            Return Home
+          </a>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>
+
+<script>
+  import { actions } from "astro:actions";
+
+  const signOutButton = document.getElementById(
+    "signout-btn"
+  ) as HTMLButtonElement | null;
+
+  signOutButton?.addEventListener("click", async () => {
+    signOutButton.disabled = true;
+    signOutButton.textContent = "Signing Out...";
+
+    const { data, error } = await actions.signOut();
+
+    if (error || !data?.success) {
+      signOutButton.disabled = false;
+      signOutButton.textContent = "Sign Out";
+      alert("We couldn't sign you out. Please try again.");
+      return;
+    }
+
+    window.location.href = "/";
+  });
+</script>
