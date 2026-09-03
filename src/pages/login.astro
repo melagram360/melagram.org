@@ -90,21 +90,25 @@ const result = Astro.getActionResult(actions.signIn);
 
             <!-- FORM -->
             <form
-  method="POST"
-  action={actions.signIn}
-  class="space-y-5"
->
-{result?.data?.success && (
-  <div class="rounded-xl border border-[#d9ad55]/40 bg-[#d9ad55]/5 px-4 py-3 text-sm leading-6 text-[#ffe8a6]">
-    {result.data.message}
-  </div>
-)}
+              method="POST"
+              action={actions.signIn}
+              class="space-y-5"
+            >
 
-{result?.data?.success === false && (
-  <div class="rounded-xl border border-red-400/30 bg-red-500/5 px-4 py-3 text-sm leading-6 text-red-200">
-    {result.data.message}
-  </div>
-)}
+              {result?.data?.success && (
+                <div
+                  data-login-success="true"
+                  class="rounded-xl border border-[#d9ad55]/40 bg-[#d9ad55]/5 px-4 py-3 text-sm leading-6 text-[#ffe8a6]"
+                >
+                  {result.data.message}
+                </div>
+              )}
+
+              {result?.data?.success === false && (
+                <div class="rounded-xl border border-red-400/30 bg-red-500/5 px-4 py-3 text-sm leading-6 text-red-200">
+                  {result.data.message}
+                </div>
+              )}
 
               <!-- EMAIL -->
               <div>
@@ -253,5 +257,16 @@ const result = Astro.getActionResult(actions.signIn);
       </footer>
 
     </div>
+
+    <script>
+      const loginSuccess = document.querySelector(
+        '[data-login-success="true"]'
+      );
+
+      if (loginSuccess) {
+        window.location.href = "/dashboard";
+      }
+    </script>
+
   </body>
 </html>
