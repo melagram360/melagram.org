@@ -1,0 +1,573 @@
+---
+import "../../styles/global.css";
+import { createClient } from "../../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+});
+
+const requestedUsername = Astro.params.username?.trim();
+
+if (!requestedUsername) {
+  return Astro.redirect("/communities");
+}
+
+const { data: profile } = await supabase
+  .from("profiles")
+  .select("username, full_name, bio, avatar_url, created_at")
+  .eq("username", requestedUsername)
+  .maybeSingle();
+
+if (!profile) {
+  return Astro.redirect("/communities");
+}
+
+const displayName = profile.full_name || profile.username || "Member";
+const username = profile.username || "member";
+
+const bio =
+  profile.bio ||
+  "A Melagram member building connections, community, and creativity.";
+
+const avatarUrl = profile.avatar_url || "";
+
+const initials = displayName
+  .split(" ")
+  .map((part: string) => part.charAt(0))
+  .join("")
+  .slice(0, 2)
+  .toUpperCase();
+
+const memberSince = profile.created_at
+  ? new Date(profile.created_at).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    })
+  : "2026";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>{displayName} (@{username}) | Melagram</title>
+
+    <meta
+      name="description"
+      content={`${displayName}'s public profile on Melagram.`}
+    />
+  </head>
+
+  <body>
+    <main class="min-h-screen px-4 py-5 md:px-8 md:py-8">
+      <div class="mx-auto max-w-7xl">
+
+        <!-- NAVIGATION -->
+
+        <nav class="mb-7 flex items-center justify-between">
+
+          <a
+            href="/"
+            class="display text-xl tracking-[0.22em] text-[#ffe8a6] transition hover:text-white"
+          >
+            MELAGRAM
+          </a>
+
+          <div
+            class="hidden items-center gap-7 text-xs uppercase tracking-[0.18em] text-white/45 md:flex"
+          >
+            <a href="/dashboard" class="nav-link hover:text-[#ffe8a6]">
+              Dashboard
+            </a>
+
+            <a href="/discover" class="nav-link hover:text-[#ffe8a6]">
+              Discover
+            </a>
+
+            <a href="/communities" class="nav-link hover:text-[#ffe8a6]">
+              Communities
+            </a>
+
+            <a href="/creators" class="nav-link hover:text-[#ffe8a6]">
+              Creators
+            </a>
+          </div>
+
+          <a
+            href="/dashboard"
+            class="rounded-full border border-[#d9ad55]/40 px-4 py-2 text-xs uppercase tracking-[0.15em] text-[#ffe8a6] transition hover:border-[#d9ad55]/80"
+          >
+            My Melagram
+          </a>
+
+        </nav>
+
+
+        <!-- PROFILE HERO -->
+
+        <section class="gold-border overflow-hidden rounded-[2rem] bg-[#08030d]">
+
+          <!-- HERO -->
+
+          <div class="relative min-h-[330px] overflow-hidden">
+
+            <!-- Background -->
+
+            <div
+              class="absolute inset-0 bg-[radial-gradient(circle_at_75%_45%,rgba(135,44,225,.42),transparent_35%),radial-gradient(circle_at_15%_30%,rgba(109,25,201,.28),transparent_35%),linear-gradient(135deg,#170522,#07020d_58%,#1b0928)]"
+            ></div>
+
+
+            <!-- Decorative Architecture -->
+
+            <div
+              class="pointer-events-none absolute right-[4%] top-[-70px] hidden h-[390px] w-[620px] rounded-t-[340px] border-2 border-[#d9ad55]/25 lg:block"
+            ></div>
+
+            <div
+              class="pointer-events-none absolute right-[10%] top-[-25px] hidden h-[340px] w-[540px] rounded-t-[300px] border border-[#ffe8a6]/15 lg:block"
+            ></div>
+
+            <div
+              class="pointer-events-none absolute right-[18%] top-[20px] hidden h-[285px] w-[430px] rounded-t-[250px] border border-[#d9ad55]/10 lg:block"
+            ></div>
+
+
+            <!-- Stars -->
+
+            <span
+              class="pointer-events-none absolute right-[38%] top-12 text-lg text-[#ffe8a6]/60"
+            >
+              ✦
+            </span>
+
+            <span
+              class="pointer-events-none absolute right-[14%] top-20 text-lg text-[#d9ad55]/60"
+            >
+              ✦
+            </span>
+
+            <span
+              class="pointer-events-none absolute right-[28%] top-32 text-sm text-[#ffe8a6]/35"
+            >
+              ✦
+            </span>
+
+
+            <!-- PROFILE CONTENT -->
+
+            <div class="relative z-10 px-7 py-10 md:px-10 md:py-12">
+
+              <div
+                class="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_auto]"
+              >
+
+                <!-- LEFT SIDE -->
+
+                <div class="flex min-w-0 items-center gap-6">
+
+                  <!-- IMAGE ONLY CIRCLE -->
+
+                  <div
+                    class="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[#d9ad55] bg-[#100618] text-3xl font-semibold text-[#ffe8a6] shadow-[0_0_45px_rgba(109,25,201,.45)] md:h-40 md:w-40"
+                  >
+
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={`${displayName} profile`}
+                        class="h-full w-full object-cover"
+                      />
+                    ) : (
+                      initials
+                    )}
+
+                  </div>
+
+
+                  <!-- NAME / USERNAME / BIO -->
+
+                  <div class="min-w-0">
+
+                    <p
+                      class="text-xs font-semibold uppercase tracking-[0.35em] text-[#d9ad55]"
+                    >
+                      MELAGRAM MEMBER
+                    </p>
+
+                    <h1
+                      class="display mt-2 break-words text-4xl font-semibold leading-tight text-[#fff7e5] md:text-5xl"
+                    >
+                      {displayName}
+                    </h1>
+
+                    <p class="mt-2 text-base text-white/50">
+                      @{username}
+                    </p>
+
+                    <p
+                      class="mt-4 max-w-2xl text-sm leading-7 text-white/70 md:text-base"
+                    >
+                      {bio}
+                    </p>
+
+                  </div>
+
+                </div>
+
+
+                <!-- RIGHT SIDE -->
+
+                <div
+                  class="flex shrink-0 flex-wrap gap-3 lg:justify-end"
+                >
+
+                  <a
+                    href="/discover"
+                    class="cta rounded-full px-7 py-3 text-sm font-semibold text-white"
+                  >
+                    Discover People
+                  </a>
+
+                  <a
+                    href="/communities"
+                    class="rounded-full border border-[#d9ad55] px-7 py-3 text-sm text-white/80 transition hover:bg-[#d9ad55]/10 hover:text-[#ffe8a6]"
+                  >
+                    Communities
+                  </a>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- PROFILE TABS -->
+
+          <div class="border-t border-[#d9ad55]/25 bg-[#08030d]/90">
+
+            <div class="flex overflow-x-auto">
+
+              <a
+                href="#posts"
+                class="border-b-2 border-[#ffe8a6] px-8 py-5 text-xs font-semibold uppercase tracking-[0.22em] text-[#ffe8a6]"
+              >
+                Posts
+              </a>
+
+              <a
+                href="#about"
+                class="px-8 py-5 text-xs uppercase tracking-[0.22em] text-white/45 transition hover:text-[#ffe8a6]"
+              >
+                About
+              </a>
+
+              <a
+                href="#communities"
+                class="px-8 py-5 text-xs uppercase tracking-[0.22em] text-white/45 transition hover:text-[#ffe8a6]"
+              >
+                Communities
+              </a>
+
+              <a
+                href="#activity"
+                class="px-8 py-5 text-xs uppercase tracking-[0.22em] text-white/45 transition hover:text-[#ffe8a6]"
+              >
+                Activity
+              </a>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- CONTENT -->
+
+        <section
+          class="mt-7 grid gap-7 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,.8fr)]"
+        >
+
+          <!-- POSTS -->
+
+          <div id="posts" class="space-y-7">
+
+            <div class="flex items-end justify-between px-1">
+
+              <div>
+
+                <p
+                  class="text-xs uppercase tracking-[0.3em] text-[#d9ad55]"
+                >
+                  MEMBER SPACE
+                </p>
+
+                <h2
+                  class="display mt-2 text-3xl text-[#ffe8a6]"
+                >
+                  Posts
+                </h2>
+
+              </div>
+
+              <span
+                class="text-xs uppercase tracking-[0.15em] text-white/30"
+              >
+                Coming Soon
+              </span>
+
+            </div>
+
+
+            <article
+              class="luxury-panel gold-border rounded-[2rem] p-8 md:p-12"
+            >
+
+              <div class="mx-auto max-w-xl text-center">
+
+                <div
+                  class="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#d9ad55]/40 bg-[#100618] text-3xl text-[#ffe8a6]"
+                >
+                  ✦
+                </div>
+
+                <p
+                  class="mt-6 text-xs uppercase tracking-[0.3em] text-[#d9ad55]"
+                >
+                  YOUR SPACE
+                </p>
+
+                <h3
+                  class="display mt-3 text-3xl text-[#fff7e5]"
+                >
+                  The conversation starts here.
+                </h3>
+
+                <p
+                  class="mt-4 text-sm leading-7 text-white/55"
+                >
+                  Posts, photos, conversations, reactions, and member activity
+                  will live here as Melagram's social features come online.
+                </p>
+
+                <div class="gold-line mx-auto mt-7 w-40"></div>
+
+                <p
+                  class="mt-5 text-xs uppercase tracking-[0.22em] text-white/30"
+                >
+                  Social Feed · Coming Soon
+                </p>
+
+              </div>
+
+            </article>
+
+
+            <!-- ACTIVITY -->
+
+            <article
+              id="activity"
+              class="luxury-panel gold-border rounded-[2rem] p-6 md:p-8"
+            >
+
+              <p
+                class="text-xs uppercase tracking-[0.3em] text-[#d9ad55]"
+              >
+                ACTIVITY
+              </p>
+
+              <h2
+                class="display mt-2 text-2xl text-[#ffe8a6]"
+              >
+                Member Activity
+              </h2>
+
+              <p
+                class="mt-4 text-sm leading-7 text-white/45"
+              >
+                Activity history will appear here as members begin posting,
+                joining communities, and connecting with one another.
+              </p>
+
+            </article>
+
+          </div>
+
+
+          <!-- SIDEBAR -->
+
+          <aside class="space-y-7">
+
+            <div
+              id="about"
+              class="luxury-panel gold-border rounded-[2rem] p-6 md:p-7"
+            >
+
+              <p
+                class="text-xs uppercase tracking-[0.3em] text-[#d9ad55]"
+              >
+                ABOUT
+              </p>
+
+              <h2
+                class="display mt-2 text-2xl text-[#ffe8a6]"
+              >
+                Member Details
+              </h2>
+
+              <div class="mt-6 space-y-6">
+
+                <div>
+                  <p class="text-xs uppercase tracking-[0.18em] text-white/30">
+                    Username
+                  </p>
+
+                  <p class="mt-1 text-sm text-white/80">
+                    @{username}
+                  </p>
+                </div>
+
+                <div>
+                  <p class="text-xs uppercase tracking-[0.18em] text-white/30">
+                    Member Since
+                  </p>
+
+                  <p class="mt-1 text-sm text-white/80">
+                    {memberSince}
+                  </p>
+                </div>
+
+                <div>
+                  <p class="text-xs uppercase tracking-[0.18em] text-white/30">
+                    Status
+                  </p>
+
+                  <p class="mt-1 flex items-center gap-2 text-sm text-[#ffe8a6]">
+                    <span class="h-2 w-2 rounded-full bg-[#d9ad55]"></span>
+                    Melagram Member
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <div
+              id="communities"
+              class="luxury-panel gold-border rounded-[2rem] p-6 md:p-7"
+            >
+
+              <p
+                class="text-xs uppercase tracking-[0.3em] text-[#d9ad55]"
+              >
+                COMMUNITY
+              </p>
+
+              <h2
+                class="display mt-2 text-2xl text-[#ffe8a6]"
+              >
+                Communities
+              </h2>
+
+              <p
+                class="mt-4 text-sm leading-6 text-white/45"
+              >
+                Community memberships will appear here as members join and
+                participate in Melagram communities.
+              </p>
+
+              <a
+                href="/communities"
+                class="mt-5 inline-flex text-sm text-[#ffe8a6] transition hover:text-white"
+              >
+                Browse Communities →
+              </a>
+
+            </div>
+
+
+            <div
+              class="luxury-panel gold-border rounded-[2rem] p-6 md:p-7"
+            >
+
+              <p
+                class="text-xs uppercase tracking-[0.3em] text-[#d9ad55]"
+              >
+                CONNECTIONS
+              </p>
+
+              <h2
+                class="display mt-2 text-2xl text-[#ffe8a6]"
+              >
+                Network
+              </h2>
+
+              <div class="mt-6 grid grid-cols-2 gap-3">
+
+                <div
+                  class="rounded-2xl border border-white/10 bg-black/20 p-5 text-center"
+                >
+                  <p class="display text-3xl text-[#ffe8a6]">
+                    0
+                  </p>
+
+                  <p
+                    class="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/35"
+                  >
+                    Followers
+                  </p>
+                </div>
+
+                <div
+                  class="rounded-2xl border border-white/10 bg-black/20 p-5 text-center"
+                >
+                  <p class="display text-3xl text-[#ffe8a6]">
+                    0
+                  </p>
+
+                  <p
+                    class="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/35"
+                  >
+                    Following
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+          </aside>
+
+        </section>
+
+
+        <!-- FOOTER -->
+
+        <footer class="py-12 text-center">
+
+          <div class="gold-line mx-auto mb-5 w-40"></div>
+
+          <p
+            class="display text-sm tracking-[0.3em] text-[#ffe8a6]"
+          >
+            MELAGRAM
+          </p>
+
+          <p class="mt-2 text-xs text-white/25">
+            Connect. Network. Create. Build Community.
+          </p>
+
+        </footer>
+
+      </div>
+    </main>
+  </body>
+</html>
