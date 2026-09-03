@@ -4,10 +4,19 @@
   "main": "dist/_worker.js/index.js",
   "compatibility_date": "2026-09-03",
   "compatibility_flags": ["nodejs_compat"],
+
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "3347b3e13b3644abbcde3f8dfe6612a9"
+    }
+  ],
+
   "assets": {
     "binding": "ASSETS",
     "directory": "dist"
   },
+
   "observability": {
     "enabled": true
   }
