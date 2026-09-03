@@ -1,0 +1,368 @@
+---
+import "../styles/global.css";
+import { actions } from "astro:actions";
+import { createClient } from "../lib/supabase";
+
+const result = Astro.getActionResult(actions.updateProfile);
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const { data: profile } = await supabase
+  .from("profiles")
+  .select("username, full_name, bio, avatar_url")
+  .eq("id", user.id)
+  .single();
+
+const displayName =
+  profile?.full_name ||
+  user.user_metadata?.full_name ||
+  user.email?.split("@")[0] ||
+  "Member";
+
+const username =
+  profile?.username ||
+  user.user_metadata?.username ||
+  "";
+
+const bio = profile?.bio || "";
+const avatarUrl = profile?.avatar_url || "";
+
+const initials = displayName
+  .split(" ")
+  .map((part: string) => part.charAt(0))
+  .join("")
+  .slice(0, 2)
+  .toUpperCase();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Profile | Melagram</title>
+  </head>
+
+  <body>
+    <main class="min-h-screen px-5 py-8 md:px-8 md:py-12">
+      <div class="mx-auto max-w-5xl">
+
+        <!-- Top Navigation -->
+        <div class="mb-8 flex items-center justify-between">
+          <a
+            href="/profile"
+            class="text-sm uppercase tracking-[0.25em] text-white/60 transition hover:text-[#ffe8a6]"
+          >
+            ← Back to Profile
+          </a>
+
+          <a
+            href="/dashboard"
+            class="text-sm uppercase tracking-[0.2em] text-[#ffe8a6] transition hover:text-white"
+          >
+            Dashboard
+          </a>
+        </div>
+
+        <!-- Header -->
+        <section class="mb-8 text-center">
+          <p class="mb-3 text-xs font-semibold uppercase tracking-[0.4em] text-[#d9ad55]">
+            MELAGRAM MEMBER
+          </p>
+
+          <h1 class="display text-4xl font-semibold text-[#ffe8a6] md:text-5xl">
+            Edit Profile
+          </h1>
+
+          <div class="gold-line mx-auto mt-5 w-32"></div>
+
+          <p class="mx-auto mt-5 max-w-xl text-sm leading-7 text-white/60 md:text-base">
+            Shape your Melagram identity. Update your name, username, bio,
+            and profile image.
+          </p>
+        </section>
+
+        <!-- Main Card -->
+        <section class="luxury-panel gold-border overflow-hidden rounded-[2rem]">
+
+          <!-- Profile Preview -->
+          <div class="border-b border-[#d9ad55]/15 px-6 py-8 md:px-10">
+            <div class="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
+
+              <div
+                id="avatar-preview"
+                class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#d9ad55]/70 bg-[#14091d] text-2xl font-semibold text-[#ffe8a6] shadow-[0_0_35px_rgba(109,25,201,.3)]"
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={`${displayName} profile`}
+                    class="h-full w-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
+              </div>
+
+              <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-[#d9ad55]">
+                  PROFILE PREVIEW
+                </p>
+
+                <h2
+                  id="name-preview"
+                  class="display mt-2 text-2xl text-[#ffe8a6]"
+                >
+                  {displayName}
+                </h2>
+
+                <p
+                  id="username-preview"
+                  class="mt-1 text-sm text-white/50"
+                >
+                  @{username || "username"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form -->
+          <form
+            id="profile-form"
+            method="POST"
+            action={actions.updateProfile}
+            class="space-y-7 px-6 py-8 md:px-10 md:py-10"
+          >
+
+            <!-- Result Message -->
+            {result?.data?.message && (
+              <div class="rounded-2xl border border-[#d9ad55]/30 bg-[#14091d]/80 px-5 py-4 text-sm text-[#ffe8a6]">
+                {result.data.message}
+              </div>
+            )}
+
+            <!-- Full Name -->
+            <div>
+              <label
+                for="full_name"
+                class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-[#d9ad55]"
+              >
+                Full Name
+              </label>
+
+              <input
+                id="full_name"
+                name="full_name"
+                type="text"
+                value={displayName}
+                required
+                minlength="2"
+                class="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-white outline-none transition placeholder:text-white/30 focus:border-[#d9ad55]/70 focus:ring-1 focus:ring-[#d9ad55]/30"
+              />
+            </div>
+
+            <!-- Username -->
+            <div>
+              <label
+                for="username"
+                class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-[#d9ad55]"
+              >
+                Username
+              </label>
+
+              <div class="relative">
+                <span class="absolute left-5 top-1/2 -translate-y-1/2 text-white/40">
+                  @
+                </span>
+
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  value={username}
+                  required
+                  minlength="3"
+                  maxlength="30"
+                  pattern="[A-Za-z0-9_]+"
+                  class="w-full rounded-2xl border border-white/10 bg-black/30 py-4 pl-10 pr-5 text-white outline-none transition placeholder:text-white/30 focus:border-[#d9ad55]/70 focus:ring-1 focus:ring-[#d9ad55]/30"
+                />
+              </div>
+
+              <p class="mt-2 text-xs text-white/40">
+                Letters, numbers, and underscores only.
+              </p>
+            </div>
+
+            <!-- Bio -->
+            <div>
+              <div class="mb-2 flex items-center justify-between">
+                <label
+                  for="bio"
+                  class="block text-xs font-semibold uppercase tracking-[0.25em] text-[#d9ad55]"
+                >
+                  Bio
+                </label>
+
+                <span
+                  id="bio-count"
+                  class="text-xs text-white/40"
+                >
+                  {bio.length}/160
+                </span>
+              </div>
+
+              <textarea
+                id="bio"
+                name="bio"
+                maxlength="160"
+                rows="5"
+                class="w-full resize-none rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-white outline-none transition placeholder:text-white/30 focus:border-[#d9ad55]/70 focus:ring-1 focus:ring-[#d9ad55]/30"
+                placeholder="Tell the Melagram community a little about yourself..."
+              >{bio}</textarea>
+            </div>
+
+            <!-- Avatar URL -->
+            <div>
+              <label
+                for="avatar_url"
+                class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-[#d9ad55]"
+              >
+                Profile Image URL
+              </label>
+
+              <input
+                id="avatar_url"
+                name="avatar_url"
+                type="url"
+                value={avatarUrl}
+                placeholder="https://example.com/your-photo.jpg"
+                class="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-white outline-none transition placeholder:text-white/30 focus:border-[#d9ad55]/70 focus:ring-1 focus:ring-[#d9ad55]/30"
+              />
+
+              <p class="mt-2 text-xs leading-5 text-white/40">
+                Image uploads will be added later through Melagram storage.
+              </p>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex flex-col gap-3 border-t border-white/10 pt-7 sm:flex-row sm:justify-end">
+
+              <a
+                href="/profile"
+                class="rounded-full border border-white/15 px-6 py-3 text-center text-sm font-medium text-white/70 transition hover:border-white/30 hover:text-white"
+              >
+                Cancel
+              </a>
+
+              <button
+                type="submit"
+                class="cta rounded-full px-7 py-3 text-sm font-semibold text-white"
+              >
+                Save Changes
+              </button>
+
+            </div>
+          </form>
+        </section>
+
+        <!-- Footer -->
+        <footer class="py-10 text-center">
+          <div class="gold-line mx-auto mb-5 w-40"></div>
+
+          <p class="text-xs uppercase tracking-[0.25em] text-white/30">
+            MELAGRAM
+          </p>
+
+          <p class="mt-2 text-xs text-white/25">
+            Connect. Network. Create. Build Community.
+          </p>
+        </footer>
+
+      </div>
+    </main>
+
+    <script>
+      const bioInput = document.getElementById("bio") as HTMLTextAreaElement | null;
+      const bioCount = document.getElementById("bio-count");
+
+      const nameInput = document.getElementById("full_name") as HTMLInputElement | null;
+      const usernameInput = document.getElementById("username") as HTMLInputElement | null;
+
+      const namePreview = document.getElementById("name-preview");
+      const usernamePreview = document.getElementById("username-preview");
+
+      const avatarInput = document.getElementById("avatar_url") as HTMLInputElement | null;
+      const avatarPreview = document.getElementById("avatar-preview");
+
+      function updateBioCount() {
+        if (bioInput && bioCount) {
+          bioCount.textContent = `${bioInput.value.length}/160`;
+        }
+      }
+
+      function updateNamePreview() {
+        if (nameInput && namePreview) {
+          namePreview.textContent = nameInput.value || "Member";
+        }
+      }
+
+      function updateUsernamePreview() {
+        if (usernameInput && usernamePreview) {
+          usernamePreview.textContent =
+            `@${usernameInput.value || "username"}`;
+        }
+      }
+
+      function updateAvatarPreview() {
+        if (!avatarPreview || !avatarInput) return;
+
+        const url = avatarInput.value.trim();
+
+        if (!url) {
+          const name = nameInput?.value || "Member";
+
+          const initials = name
+            .split(" ")
+            .map((part) => part.charAt(0))
+            .join("")
+            .slice(0, 2)
+            .toUpperCase();
+
+          avatarPreview.innerHTML = initials;
+          return;
+        }
+
+        avatarPreview.innerHTML = "";
+
+        const image = document.createElement("img");
+        image.src = url;
+        image.alt = "Profile preview";
+        image.className = "h-full w-full object-cover";
+
+        image.onerror = () => {
+          avatarPreview.innerHTML = "ME";
+        };
+
+        avatarPreview.appendChild(image);
+      }
+
+      bioInput?.addEventListener("input", updateBioCount);
+      nameInput?.addEventListener("input", updateNamePreview);
+      usernameInput?.addEventListener("input", updateUsernamePreview);
+      avatarInput?.addEventListener("input", updateAvatarPreview);
+
+      updateBioCount();
+    </script>
+  </body>
+</html>

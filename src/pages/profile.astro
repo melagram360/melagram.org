@@ -1,0 +1,316 @@
+---
+import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const { data: profile } = await supabase
+  .from("profiles")
+  .select("username, full_name, bio, avatar_url, created_at")
+  .eq("id", user.id)
+  .single();
+
+const displayName =
+  profile?.full_name ||
+  user.user_metadata?.full_name ||
+  user.email?.split("@")[0] ||
+  "Member";
+
+const username =
+  profile?.username ||
+  user.user_metadata?.username ||
+  "member";
+
+const email = user.email || "";
+
+const bio =
+  profile?.bio ||
+  "Your Melagram identity starts here. Tell the community a little about yourself.";
+
+const avatarUrl = profile?.avatar_url || "";
+
+const initials = displayName
+  .split(" ")
+  .map((part: string) => part.charAt(0))
+  .join("")
+  .slice(0, 2)
+  .toUpperCase();
+
+const memberSince = profile?.created_at
+  ? new Date(profile.created_at).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    })
+  : "2026";
+---
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content={`Melagram profile for ${displayName}`}
+    />
+    <title>{displayName} — Melagram</title>
+  </head>
+
+  <body>
+    <main class="min-h-screen bg-[#050208] text-[#fff7e5]">
+      <!-- Top Frame -->
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+      <!-- NAV -->
+      <nav class="border-b border-[#d9ad55]/20 bg-black/50 backdrop-blur-xl">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
+          <a href="/dashboard" class="flex items-center gap-3">
+            <div
+              class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#1a0827] text-[#ffe8a6]"
+            >
+              M
+            </div>
+
+            <span
+              class="display hidden text-lg tracking-[.18em] text-[#ffe8a6] sm:block"
+            >
+              MELAGRAM
+            </span>
+          </a>
+
+          <div
+            class="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[.22em] text-white/75 md:flex"
+          >
+            <a class="nav-link" href="/dashboard">Home</a>
+            <a class="nav-link" href="/discover">Discover</a>
+            <a class="nav-link" href="/communities">Communities</a>
+            <a class="nav-link" href="/creators">Creators</a>
+          </div>
+
+          <a
+            href="/dashboard"
+            class="rounded-full border border-[#d9ad55]/50 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+          >
+            Dashboard
+          </a>
+        </div>
+      </nav>
+
+      <!-- PROFILE HERO -->
+      <section class="relative overflow-hidden px-5 py-12 sm:px-8 lg:py-20">
+        <div
+          class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(109,25,201,.30),transparent_45rem)]"
+        ></div>
+
+        <div class="relative mx-auto max-w-5xl">
+          <div
+            class="luxury-panel gold-border overflow-hidden rounded-[2rem]"
+          >
+            <!-- Cover -->
+            <div
+              class="relative h-36 bg-[radial-gradient(circle_at_50%_20%,rgba(135,44,225,.5),transparent_55%),linear-gradient(135deg,#160722,#07030d)] sm:h-48"
+            >
+              <div
+                class="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#d9ad55] to-transparent"
+              ></div>
+            </div>
+
+            <!-- Identity -->
+            <div class="px-6 pb-8 sm:px-10">
+              <div class="-mt-14 flex flex-col items-center sm:-mt-16 sm:flex-row sm:items-end sm:gap-6">
+                <div
+                  class="grid h-28 w-28 shrink-0 place-items-center rounded-full border-2 border-[#d9ad55]/80 bg-[#160722] text-3xl font-semibold text-[#ffe8a6] shadow-[0_0_35px_rgba(109,25,201,.35)] sm:h-32 sm:w-32"
+                >
+                  {initials}
+                </div>
+
+                <div class="mt-4 text-center sm:mb-2 sm:mt-0 sm:text-left">
+                  <p
+                    class="text-[10px] font-bold uppercase tracking-[.35em] text-[#d9ad55]"
+                  >
+                    Melagram Member
+                  </p>
+
+                  <h1 class="display mt-2 text-3xl text-[#ffe8a6] sm:text-4xl">
+                    {displayName}
+                  </h1>
+
+                  <p class="mt-1 text-sm text-white/45">
+                    @{username}
+                  </p>
+                </div>
+
+                <div class="mt-5 sm:mb-2 sm:ml-auto sm:mt-0">
+                  <button
+                    type="button"
+                    class="rounded-full border border-[#d9ad55]/60 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+                  >
+                    Edit Profile
+                  </button>
+                </div>
+              </div>
+
+              <div class="gold-line my-8"></div>
+
+              <!-- Stats -->
+              <div class="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p class="display text-2xl text-[#ffe8a6]">0</p>
+                  <p class="mt-1 text-[10px] uppercase tracking-widest text-white/40">
+                    Posts
+                  </p>
+                </div>
+
+                <div>
+                  <p class="display text-2xl text-[#ffe8a6]">0</p>
+                  <p class="mt-1 text-[10px] uppercase tracking-widest text-white/40">
+                    Followers
+                  </p>
+                </div>
+
+                <div>
+                  <p class="display text-2xl text-[#ffe8a6]">0</p>
+                  <p class="mt-1 text-[10px] uppercase tracking-widest text-white/40">
+                    Following
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROFILE CONTENT -->
+      <section class="mx-auto max-w-5xl px-5 pb-20 sm:px-8">
+        <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
+          <!-- About -->
+          <div class="gold-border luxury-panel rounded-2xl p-7 sm:p-9">
+            <p
+              class="text-[10px] font-bold uppercase tracking-[.4em] text-[#d9ad55]"
+            >
+              About
+            </p>
+
+            <h2 class="display mt-3 text-3xl text-[#ffe8a6]">
+              My Melagram
+            </h2>
+
+            <p class="mt-5 text-sm leading-7 text-white/55">
+              Your profile is where your Melagram identity comes together.
+              Share your story, interests, creative work, communities, and
+              the things that make you you.
+            </p>
+
+            <div class="gold-line my-7"></div>
+
+            <div class="space-y-5">
+              <div>
+                <p class="text-xs uppercase tracking-widest text-[#d9ad55]">
+                  Name
+                </p>
+                <p class="mt-2 text-sm text-white/75">
+                  {displayName}
+                </p>
+              </div>
+
+              <div>
+                <p class="text-xs uppercase tracking-widest text-[#d9ad55]">
+                  Username
+                </p>
+                <p class="mt-2 text-sm text-white/75">
+                  @{username}
+                </p>
+              </div>
+
+              <div>
+                <p class="text-xs uppercase tracking-widest text-[#d9ad55]">
+                  Email
+                </p>
+                <p class="mt-2 break-all text-sm text-white/75">
+                  {email}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Profile Menu -->
+          <aside class="space-y-6">
+            <div class="gold-border luxury-panel rounded-2xl p-6">
+              <p
+                class="text-[10px] font-bold uppercase tracking-[.35em] text-[#d9ad55]"
+              >
+                Your Space
+              </p>
+
+              <div class="gold-line my-5"></div>
+
+              <div class="space-y-2">
+                <button
+                  type="button"
+                  class="w-full rounded-xl border border-white/10 px-4 py-3 text-left text-sm text-white/60 transition hover:border-[#d9ad55]/40 hover:text-[#ffe8a6]"
+                >
+                  Edit Profile
+                </button>
+
+                <button
+                  type="button"
+                  class="w-full rounded-xl border border-white/10 px-4 py-3 text-left text-sm text-white/60 transition hover:border-[#d9ad55]/40 hover:text-[#ffe8a6]"
+                >
+                  Account Settings
+                </button>
+
+                <button
+                  type="button"
+                  class="w-full rounded-xl border border-white/10 px-4 py-3 text-left text-sm text-white/60 transition hover:border-[#d9ad55]/40 hover:text-[#ffe8a6]"
+                >
+                  Privacy
+                </button>
+              </div>
+            </div>
+
+            <div class="gold-border luxury-panel rounded-2xl p-6">
+              <p
+                class="text-[10px] font-bold uppercase tracking-[.35em] text-[#d9ad55]"
+              >
+                Member Since
+              </p>
+
+              <p class="mt-3 text-sm text-white/60">
+                Welcome to Melagram.
+              </p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer class="border-t border-[#d9ad55]/15 px-5 py-8 sm:px-8">
+        <div
+          class="mx-auto flex max-w-7xl flex-col gap-3 text-sm text-white/40 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p>
+            © 2026 Melagram. Connect. Network. Create. Build Community.
+          </p>
+
+          <a
+            href="/dashboard"
+            class="text-[#d9ad55] hover:text-[#ffe8a6]"
+          >
+            Back to Dashboard
+          </a>
+        </div>
+      </footer>
+
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+    </main>
+  </body>
+</html>
