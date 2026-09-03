@@ -25,9 +25,10 @@ export const server = {
     handler: async (input, context) => {
       try {
         const supabase = createClient({
-          request: context.request,
-          cookies: context.cookies,
-        });
+  request: context.request,
+  cookies: context.cookies,
+  env: context.locals.runtime.env,
+});
 
         const { error } = await supabase.auth.signUp({
           email: input.email,
@@ -71,9 +72,10 @@ export const server = {
     handler: async (input, context) => {
       try {
         const supabase = createClient({
-          request: context.request,
-          cookies: context.cookies,
-        });
+  request: context.request,
+  cookies: context.cookies,
+  env: context.locals.runtime.env,
+});
 
         const { error } = await supabase.auth.signInWithPassword({
           email: input.email,
@@ -108,9 +110,10 @@ export const server = {
     handler: async (input, context) => {
       try {
         const supabase = createClient({
-          request: context.request,
-          cookies: context.cookies,
-        });
+  request: context.request,
+  cookies: context.cookies,
+  env: context.locals.runtime.env,
+});
 
         const { error } = await supabase.auth.resetPasswordForEmail(
           input.email,
@@ -156,9 +159,10 @@ export const server = {
         }
 
         const supabase = createClient({
-          request: context.request,
-          cookies: context.cookies,
-        });
+  request: context.request,
+  cookies: context.cookies,
+  env: context.locals.runtime.env,
+});
 
         const {
           data: { user },
@@ -201,9 +205,10 @@ export const server = {
     handler: async (_, context) => {
       try {
         const supabase = createClient({
-          request: context.request,
-          cookies: context.cookies,
-        });
+  request: context.request,
+  cookies: context.cookies,
+  env: context.locals.runtime.env,
+});
 
         await supabase.auth.signOut();
 
@@ -234,9 +239,10 @@ export const server = {
     handler: async (input, context) => {
       try {
         const supabase = createClient({
-          request: context.request,
-          cookies: context.cookies,
-        });
+  request: context.request,
+  cookies: context.cookies,
+  env: context.locals.runtime.env,
+});
 
         const {
           data: { user },
