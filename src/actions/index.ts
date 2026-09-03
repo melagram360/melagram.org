@@ -33,7 +33,7 @@ export const server = {
           email: input.email,
           password: input.password,
           options: {
-            emailRedirectTo: "http://localhost:4321/auth/callback",
+            emailRedirectTo: "https://melagram.org/auth/callback",  
             data: {
               full_name: input.name,
               username: input.username,
@@ -115,7 +115,7 @@ export const server = {
         const { error } = await supabase.auth.resetPasswordForEmail(
           input.email,
           {
-            redirectTo: "http://localhost:4321/auth/reset-password",
+            redirectTo: "https://melagram.org/auth/reset-password",
           }
         );
 
