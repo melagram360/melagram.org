@@ -71,6 +71,8 @@ export function getStaticPaths() {
 
 const { community } = Astro.props;
 
+export const prerender = true;
+
 const posts = [
   {
     author: "Melagram Community",
