@@ -1,4 +1,4 @@
----
+﻿---
 import "../../styles/global.css";
 import { actions } from "astro:actions";
 import { createClient } from "../../lib/supabase";
@@ -102,6 +102,39 @@ const displayName =
   user?.user_metadata?.username ||
   user?.email?.split("@")[0] ||
   "Member";
+
+/* --------------------------------
+   COMMUNITY MEMBERSHIP
+--------------------------------- */
+
+const {
+  data: communityRecord,
+  error: communityRecordError,
+} = await supabase
+  .from("communities")
+  .select("id")
+  .eq("slug", slug)
+  .maybeSingle();
+
+let communityId: string | null = null;
+let isCommunityMember = false;
+
+if (!communityRecordError && communityRecord) {
+  communityId = communityRecord.id;
+}
+
+if (user && communityId) {
+  const {
+    data: membership,
+  } = await supabase
+    .from("community_members")
+    .select("community_id")
+    .eq("community_id", communityId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  isCommunityMember = !!membership;
+}
 
 /* --------------------------------
    COMMUNITY POSTS
@@ -370,9 +403,6 @@ if (!postsError && posts && posts.length > 0) {
   <body>
 
     <div
-      id="community-page"
-      data-community-slug={slug}
-      data-community-name={community.name}
       class="min-h-screen overflow-hidden bg-[#050208] text-[#fff7e5]"
     >
 
@@ -441,7 +471,7 @@ if (!postsError && posts && posts.length > 0) {
 
             <a
               class="nav-link"
-              href="//creators"
+              href="/#creators"
             >
               Creators
             </a>
@@ -481,7 +511,7 @@ if (!postsError && posts && posts.length > 0) {
           ) : (
 
             <a
-              href="/#join"
+              href="/join"
               class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
             >
               Join Melagram
@@ -574,9 +604,17 @@ if (!postsError && posts && posts.length > 0) {
               <button
                 type="button"
                 id="community-join-btn"
+                data-community-id={communityId ?? ""}
+                data-member={
+                  isCommunityMember
+                    ? "true"
+                    : "false"
+                }
                 class="cta mt-8 rounded-xl px-9 py-4 text-sm font-bold uppercase tracking-wider text-white"
               >
-                Join Community
+                {isCommunityMember
+                  ? "Leave Community"
+                  : "Join Community"}
               </button>
 
             ) : (
@@ -1349,25 +1387,7 @@ if (!postsError && posts && posts.length > 0) {
 
 
       /* --------------------------------
-         COMMUNITY DATA
-      --------------------------------- */
-
-      const communityPage =
-        document.getElementById(
-          "community-page"
-        );
-
-      const communitySlug =
-        communityPage?.dataset.communitySlug ||
-        "";
-
-      const communityName =
-        communityPage?.dataset.communityName ||
-        "Melagram Community";
-
-
-      /* --------------------------------
-         JOIN COMMUNITY
+         JOIN / LEAVE COMMUNITY
       --------------------------------- */
 
       const joinButton =
@@ -1377,31 +1397,85 @@ if (!postsError && posts && posts.length > 0) {
 
       joinButton?.addEventListener(
         "click",
-        () => {
+        async () => {
 
-          const postContent =
-            document.getElementById(
-              "community-post-content"
-            ) as HTMLTextAreaElement | null;
+          const communityId =
+            joinButton.dataset.communityId;
 
-          if (postContent) {
-
-            postContent.focus();
-
-            postContent.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-
+          if (!communityId) {
+            alert(
+              "We couldn't identify this community. Please refresh the page and try again."
+            );
+            return;
           }
 
+          if (joinButton.disabled) {
+            return;
+          }
+
+          const currentlyMember =
+            joinButton.dataset.member ===
+            "true";
+
+          joinButton.disabled = true;
           joinButton.textContent =
-            "You're In!";
+            currentlyMember
+              ? "Leaving..."
+              : "Joining...";
 
-          joinButton.classList.add(
-            "bg-[#6d19c9]"
+          const result =
+            currentlyMember
+              ? await actions.leaveCommunity({
+                  communityId,
+                })
+              : await actions.joinCommunity({
+                  communityId,
+                });
+
+          const {
+            data,
+            error,
+          } = result;
+
+          if (
+            error ||
+            !data?.success
+          ) {
+            joinButton.disabled =
+              false;
+
+            joinButton.textContent =
+              currentlyMember
+                ? "Leave Community"
+                : "Join Community";
+
+            alert(
+              data?.message ||
+                "We couldn't update your community membership. Please try again."
+            );
+            return;
+          }
+
+          const joined =
+            data.joined;
+
+          joinButton.dataset.member =
+            joined
+              ? "true"
+              : "false";
+
+          joinButton.textContent =
+            joined
+              ? "Leave Community"
+              : "Join Community";
+
+          joinButton.disabled =
+            false;
+
+          joinButton.classList.toggle(
+            "bg-[#6d19c9]",
+            joined
           );
-
         }
       );
 
@@ -1479,23 +1553,6 @@ if (!postsError && posts && posts.length > 0) {
             return;
           }
 
-          if (!communitySlug) {
-            if (message) {
-              message.textContent =
-                "We couldn't identify this community. Please refresh the page and try again.";
-
-              message.classList.remove(
-                "hidden"
-              );
-
-              message.classList.add(
-                "text-red-300"
-              );
-            }
-
-            return;
-          }
-
           submitButton.disabled =
             true;
 
@@ -1506,10 +1563,6 @@ if (!postsError && posts && posts.length > 0) {
             message.classList.add(
               "hidden"
             );
-
-            message.classList.remove(
-              "text-red-300"
-            );
           }
 
           const {
@@ -1518,7 +1571,8 @@ if (!postsError && posts && posts.length > 0) {
           } =
             await actions.createCommunityPost(
               {
-                communitySlug,
+                communitySlug:
+                  "{slug}",
                 content,
               }
             );
@@ -1862,15 +1916,12 @@ if (!postsError && posts && posts.length > 0) {
               const postId =
                 button.dataset.postId;
 
-              if (
-                !postId ||
-                !communitySlug
-              ) {
+              if (!postId) {
                 return;
               }
 
               const shareUrl =
-                `${window.location.origin}/communities/${communitySlug}#post-${postId}`;
+                `${window.location.origin}/communities/{slug}#post-${postId}`;
 
               const label =
                 button.querySelector(
@@ -1890,7 +1941,7 @@ if (!postsError && posts && posts.length > 0) {
 
                   await navigator.share({
                     title:
-                      `${communityName} — Melagram`,
+                      "{community.name} — Melagram",
                     text:
                       "Check out this post on Melagram.",
                     url:
