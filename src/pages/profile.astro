@@ -108,6 +108,61 @@ const { data: posts } = await supabase
   });
 
 const profilePosts = posts ?? [];
+
+/* --------------------------------
+   MY COMMUNITIES
+--------------------------------- */
+
+const { data: memberships } = await supabase
+  .from("community_members")
+  .select("community_id, created_at")
+  .eq("user_id", user.id)
+  .order("created_at", {
+    ascending: false,
+  });
+
+const communityIds =
+  (memberships ?? []).map(
+    (membership) => membership.community_id
+  );
+
+let myCommunities: Array<{
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  icon: string;
+  description: string;
+}> = [];
+
+if (communityIds.length > 0) {
+  const { data: communities } = await supabase
+    .from("communities")
+    .select("id, slug, name, category, icon, description")
+    .in("id", communityIds);
+
+  const communityMap = new Map(
+    (communities ?? []).map((community) => [
+      community.id,
+      community,
+    ])
+  );
+
+  myCommunities = communityIds
+    .map((id) => communityMap.get(id))
+    .filter(
+      (
+        community
+      ): community is {
+        id: string;
+        slug: string;
+        name: string;
+        category: string;
+        icon: string;
+        description: string;
+      } => Boolean(community)
+    );
+}
 ---
 
 <html lang="en">
@@ -118,7 +173,7 @@ const profilePosts = posts ?? [];
       name="description"
       content={`Melagram profile for ${displayName}`}
     />
-    <title>{displayName} — Melagram</title>
+    <title>{displayName} â€” Melagram</title>
   </head>
 
   <body>
@@ -388,7 +443,7 @@ const profilePosts = posts ?? [];
           >
 
             <div
-              class="grid grid-cols-4 overflow-x-auto sm:grid-cols-7"
+              class="grid grid-cols-4 overflow-x-auto sm:grid-cols-8"
             >
 
               <a
@@ -403,6 +458,13 @@ const profilePosts = posts ?? [];
                 class="px-4 py-4 text-center text-[9px] font-semibold uppercase tracking-[.15em] text-white/40 transition hover:text-[#ffe8a6]"
               >
                 Posts
+              </a>
+
+              <a
+                href="#communities"
+                class="px-4 py-4 text-center text-[9px] font-semibold uppercase tracking-[.15em] text-white/40 transition hover:text-[#ffe8a6]"
+              >
+                Communities
               </a>
 
               <a
@@ -467,7 +529,7 @@ const profilePosts = posts ?? [];
               <div class="gold-line flex-1"></div>
 
               <span class="text-lg text-[#ffe8a6]">
-                ✦
+                âœ¦
               </span>
 
               <div class="gold-line flex-1"></div>
@@ -550,6 +612,108 @@ const profilePosts = posts ?? [];
           </div>
 
 
+          <!-- MY COMMUNITIES -->
+          <div
+            id="communities"
+            class="gold-border luxury-panel mt-7 rounded-2xl p-7 shadow-[0_25px_70px_rgba(0,0,0,.35)] sm:p-10"
+          >
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+
+              <div>
+                <p
+                  class="text-[9px] font-bold uppercase tracking-[.4em] text-[#d9ad55]"
+                >
+                  My Communities
+                </p>
+
+                <h2 class="display mt-3 text-3xl text-[#ffe8a6] sm:text-4xl">
+                  My Communities
+                </h2>
+              </div>
+
+              <a
+                href="/communities"
+                class="inline-flex w-fit rounded-full border border-[#d9ad55]/60 px-5 py-3 text-[10px] font-bold uppercase tracking-[.18em] text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+              >
+                Discover Communities
+              </a>
+
+            </div>
+
+            <div class="my-6 flex items-center gap-4">
+              <div class="gold-line flex-1"></div>
+              <span class="text-lg text-[#ffe8a6]">✦</span>
+              <div class="gold-line flex-1"></div>
+            </div>
+
+            {
+              myCommunities.length > 0 ? (
+                <div class="grid gap-5 sm:grid-cols-2">
+                  {myCommunities.map((community) => (
+                    <a
+                      href={`/communities/${community.slug}`}
+                      class="group rounded-2xl border border-white/10 bg-[#08030d]/70 p-6 transition hover:border-[#d9ad55]/40 hover:bg-[#0c0514] hover:shadow-[0_15px_45px_rgba(109,25,201,.18)]"
+                    >
+                      <div class="flex items-start gap-4">
+                        <div
+                          class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-[#d9ad55]/30 bg-[#6d19c9]/10 text-2xl transition group-hover:border-[#d9ad55]/60 group-hover:bg-[#6d19c9]/20"
+                        >
+                          {community.icon}
+                        </div>
+
+                        <div class="min-w-0 flex-1">
+                          <p
+                            class="text-[9px] font-bold uppercase tracking-[.2em] text-[#d9ad55]"
+                          >
+                            {community.category}
+                          </p>
+
+                          <h3
+                            class="display mt-2 text-xl text-[#ffe8a6] transition group-hover:text-white"
+                          >
+                            {community.name}
+                          </h3>
+
+                          <p class="mt-2 text-sm leading-6 text-white/45">
+                            {community.description}
+                          </p>
+
+                          <p
+                            class="mt-4 text-[9px] font-bold uppercase tracking-[.18em] text-[#ffe8a6]/60 transition group-hover:text-[#ffe8a6]"
+                          >
+                            View Community →
+                          </p>
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div class="rounded-2xl border border-dashed border-[#d9ad55]/20 bg-[#08030d]/50 px-6 py-12 text-center">
+                  <div class="text-4xl text-[#ffe8a6]">✦</div>
+
+                  <h3 class="display mt-4 text-2xl text-[#ffe8a6]">
+                    No Communities Yet
+                  </h3>
+
+                  <p class="mx-auto mt-3 max-w-md text-sm leading-7 text-white/45">
+                    Join a Melagram community and the communities you belong to will appear here.
+                  </p>
+
+                  <a
+                    href="/communities"
+                    class="mt-6 inline-flex rounded-full border border-[#d9ad55]/60 px-5 py-3 text-[10px] font-bold uppercase tracking-[.18em] text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+                  >
+                    Explore Communities
+                  </a>
+                </div>
+              )
+            }
+
+          </div>
+
+
           <!-- POSTS -->
           <div
             id="posts"
@@ -584,7 +748,7 @@ const profilePosts = posts ?? [];
               <div class="gold-line flex-1"></div>
 
               <span class="text-lg text-[#ffe8a6]">
-                ✦
+                âœ¦
               </span>
 
               <div class="gold-line flex-1"></div>
@@ -648,7 +812,7 @@ const profilePosts = posts ?? [];
                 <div class="rounded-2xl border border-dashed border-[#d9ad55]/20 bg-[#08030d]/50 px-6 py-12 text-center">
 
                   <div class="text-4xl text-[#ffe8a6]">
-                    ✦
+                    âœ¦
                   </div>
 
                   <h3 class="display mt-4 text-2xl text-[#ffe8a6]">
@@ -719,7 +883,7 @@ const profilePosts = posts ?? [];
 
 
           <p class="mt-10 text-[10px] text-white/25">
-            © 2026 Melagram. All rights reserved.
+            Â© 2026 Melagram. All rights reserved.
           </p>
 
         </div>
