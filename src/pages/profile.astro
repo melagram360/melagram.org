@@ -94,6 +94,20 @@ if (user.id) {
 
   postCount = posts ?? 0;
 }
+
+/* --------------------------------
+   PROFILE POSTS
+--------------------------------- */
+
+const { data: posts } = await supabase
+  .from("posts")
+  .select("id, content, created_at, community_slug")
+  .eq("user_id", user.id)
+  .order("created_at", {
+    ascending: false,
+  });
+
+const profilePosts = posts ?? [];
 ---
 
 <html lang="en">
@@ -133,11 +147,15 @@ if (user.id) {
 
 
       <!-- TOP GOLD LINE -->
-      <div class="h-1 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+      <div
+        class="h-1 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"
+      ></div>
 
 
       <!-- NAV -->
-      <nav class="border-b border-[#d9ad55]/20 bg-[#07030d]/80 backdrop-blur-xl">
+      <nav
+        class="border-b border-[#d9ad55]/20 bg-[#07030d]/80 backdrop-blur-xl"
+      >
         <div
           class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8"
         >
@@ -168,19 +186,31 @@ if (user.id) {
           <div
             class="hidden items-center gap-7 text-[10px] font-semibold uppercase tracking-[.2em] text-white/60 lg:flex"
           >
-            <a class="nav-link hover:text-[#ffe8a6]" href="/dashboard">
+            <a
+              class="nav-link hover:text-[#ffe8a6]"
+              href="/dashboard"
+            >
               Home
             </a>
 
-            <a class="nav-link hover:text-[#ffe8a6]" href="/discover">
+            <a
+              class="nav-link hover:text-[#ffe8a6]"
+              href="/discover"
+            >
               Discover
             </a>
 
-            <a class="nav-link hover:text-[#ffe8a6]" href="/communities">
+            <a
+              class="nav-link hover:text-[#ffe8a6]"
+              href="/communities"
+            >
               Communities
             </a>
 
-            <a class="nav-link hover:text-[#ffe8a6]" href="/creators">
+            <a
+              class="nav-link hover:text-[#ffe8a6]"
+              href="/creators"
+            >
               Creators
             </a>
           </div>
@@ -519,6 +549,129 @@ if (user.id) {
 
           </div>
 
+
+          <!-- POSTS -->
+          <div
+            id="posts"
+            class="gold-border luxury-panel mt-7 rounded-2xl p-7 shadow-[0_25px_70px_rgba(0,0,0,.35)] sm:p-10"
+          >
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+
+              <div>
+                <p
+                  class="text-[9px] font-bold uppercase tracking-[.4em] text-[#d9ad55]"
+                >
+                  My Activity
+                </p>
+
+                <h2 class="display mt-3 text-3xl text-[#ffe8a6] sm:text-4xl">
+                  My Posts
+                </h2>
+              </div>
+
+              <a
+                href="/create-post"
+                class="inline-flex w-fit rounded-full border border-[#d9ad55]/60 px-5 py-3 text-[10px] font-bold uppercase tracking-[.18em] text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+              >
+                Create Post
+              </a>
+
+            </div>
+
+
+            <div class="my-6 flex items-center gap-4">
+              <div class="gold-line flex-1"></div>
+
+              <span class="text-lg text-[#ffe8a6]">
+                ✦
+              </span>
+
+              <div class="gold-line flex-1"></div>
+            </div>
+
+
+            {
+              profilePosts.length > 0 ? (
+                <div class="space-y-5">
+                  {profilePosts.map((post) => (
+                    <article
+                      class="rounded-2xl border border-white/10 bg-[#08030d]/70 p-6 transition hover:border-[#d9ad55]/30 hover:bg-[#0c0514]"
+                    >
+
+                      <div class="flex items-center justify-between gap-4">
+                        <div>
+                          <p class="text-sm font-semibold text-[#ffe8a6]">
+                            {displayName}
+                          </p>
+
+                          <p class="mt-1 text-[10px] uppercase tracking-[.15em] text-white/30">
+                            @{username}
+                          </p>
+                        </div>
+
+                        <time
+                          class="shrink-0 text-[10px] text-white/30"
+                          datetime={post.created_at}
+                        >
+                          {new Date(post.created_at).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            }
+                          )}
+                        </time>
+                      </div>
+
+
+                      <p class="mt-5 whitespace-pre-wrap text-sm leading-7 text-white/70">
+                        {post.content}
+                      </p>
+
+
+                      {
+                        post.community_slug && (
+                          <div class="mt-5">
+                            <span class="inline-flex rounded-full border border-[#d9ad55]/30 bg-[#6d19c9]/10 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[.15em] text-[#ffe8a6]">
+                              Community: {post.community_slug}
+                            </span>
+                          </div>
+                        )
+                      }
+
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div class="rounded-2xl border border-dashed border-[#d9ad55]/20 bg-[#08030d]/50 px-6 py-12 text-center">
+
+                  <div class="text-4xl text-[#ffe8a6]">
+                    ✦
+                  </div>
+
+                  <h3 class="display mt-4 text-2xl text-[#ffe8a6]">
+                    No Posts Yet
+                  </h3>
+
+                  <p class="mx-auto mt-3 max-w-md text-sm leading-7 text-white/45">
+                    Your Melagram posts will appear here when you share something with the community.
+                  </p>
+
+                  <a
+                    href="/create-post"
+                    class="mt-6 inline-flex rounded-full border border-[#d9ad55]/60 px-5 py-3 text-[10px] font-bold uppercase tracking-[.18em] text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+                  >
+                    Create Your First Post
+                  </a>
+
+                </div>
+              )
+            }
+
+          </div>
+
         </div>
 
       </section>
@@ -575,7 +728,9 @@ if (user.id) {
 
 
       <!-- BOTTOM GOLD LINE -->
-      <div class="h-1 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+      <div
+        class="h-1 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"
+      ></div>
 
     </main>
   </body>
