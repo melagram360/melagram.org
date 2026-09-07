@@ -1130,4 +1130,162 @@ export const server = {
       }
     },
   }),
+
+  /* ========================================
+     JOIN COMMUNITY
+  ======================================== */
+
+  joinCommunity: defineAction({
+    accept: "json",
+
+    input: z.object({
+      communityId: z.string().uuid(),
+    }),
+
+    handler: async (input, context) => {
+      try {
+        const supabase = createClient({
+          request: context.request,
+          cookies: context.cookies,
+          env: context.locals.runtime.env,
+        });
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          return {
+            success: false,
+            joined: false,
+            message:
+              "You must be signed in to join a community.",
+          };
+        }
+
+        const { error } = await supabase
+          .from("community_members")
+          .insert({
+            community_id: input.communityId,
+            user_id: user.id,
+          });
+
+        if (error) {
+          if (error.code === "23505") {
+            return {
+              success: true,
+              joined: true,
+              message: "You are already a member of this community.",
+            };
+          }
+
+          console.error(
+            "Join community error:",
+            error
+          );
+
+          return {
+            success: false,
+            joined: false,
+            message:
+              "We couldn't join this community. Please try again.",
+          };
+        }
+
+        return {
+          success: true,
+          joined: true,
+          message:
+            "You joined the community.",
+        };
+      } catch (error) {
+        console.error(
+          "Join community error:",
+          error
+        );
+
+        return {
+          success: false,
+          joined: false,
+          message:
+            "Something went wrong while joining the community.",
+        };
+      }
+    },
+  }),
+
+  /* ========================================
+     LEAVE COMMUNITY
+  ======================================== */
+
+  leaveCommunity: defineAction({
+    accept: "json",
+
+    input: z.object({
+      communityId: z.string().uuid(),
+    }),
+
+    handler: async (input, context) => {
+      try {
+        const supabase = createClient({
+          request: context.request,
+          cookies: context.cookies,
+          env: context.locals.runtime.env,
+        });
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          return {
+            success: false,
+            joined: false,
+            message:
+              "You must be signed in to leave a community.",
+          };
+        }
+
+        const { error } = await supabase
+          .from("community_members")
+          .delete()
+          .eq("community_id", input.communityId)
+          .eq("user_id", user.id);
+
+        if (error) {
+          console.error(
+            "Leave community error:",
+            error
+          );
+
+          return {
+            success: false,
+            joined: true,
+            message:
+              "We couldn't leave this community. Please try again.",
+          };
+        }
+
+        return {
+          success: true,
+          joined: false,
+          message:
+            "You left the community.",
+        };
+      } catch (error) {
+        console.error(
+          "Leave community error:",
+          error
+        );
+
+        return {
+          success: false,
+          joined: true,
+          message:
+            "Something went wrong while leaving the community.",
+        };
+      }
+    },
+  }),
+
 };
