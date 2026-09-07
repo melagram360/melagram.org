@@ -1,216 +1,977 @@
 ---
 import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+  env: Astro.locals.runtime.env,
+});
+
+const {
+  data: { user: currentUser },
+} = await supabase.auth.getUser();
+
+/* ========================================
+   DISCOVER MEMBERS
+======================================== */
+
+const { data: profiles } = await supabase
+  .from("profiles")
+  .select(
+    "id, username, full_name, bio, avatar_url, created_at"
+  )
+  .order("created_at", { ascending: false })
+  .limit(24);
+
+const allProfiles = profiles ?? [];
+
+const members = currentUser
+  ? allProfiles.filter(
+      (member) => member.id !== currentUser.id
+    )
+  : [];
+
+/* ========================================
+   FOLLOWING DATA
+======================================== */
+
+let followingIds = new Set<string>();
+
+if (
+  currentUser &&
+  members.length > 0
+) {
+  const memberIds = members.map(
+    (member) => member.id
+  );
+
+  const { data: follows } =
+    await supabase
+      .from("follows")
+      .select("following_id")
+      .eq(
+        "follower_id",
+        currentUser.id
+      )
+      .in(
+        "following_id",
+        memberIds
+      );
+
+  followingIds = new Set(
+    (follows ?? []).map(
+      (follow) =>
+        follow.following_id
+    )
+  );
+}
+
+/* ========================================
+   DISCOVER CATEGORIES
+======================================== */
 
 const categories = [
   {
     icon: "🔥",
     title: "Trending Now",
-    text: "See what conversations are getting people talking across Melagram."
+    text:
+      "See what conversations are getting people talking across Melagram.",
+    href: "#trending",
   },
   {
     icon: "👥",
     title: "People to Follow",
-    text: "Discover interesting people and voices that belong in your network."
+    text:
+      "Discover interesting people and voices that belong in your network.",
+    href: "#people",
   },
   {
     icon: "♛",
     title: "Featured Creators",
-    text: "Find creators bringing ideas, stories, art, and entertainment to life."
+    text:
+      "Find creators bringing ideas, stories, art, and entertainment to life.",
+    href: "/creators",
   },
   {
     icon: "◈",
     title: "Popular Communities",
-    text: "Explore communities built around interests, culture, hobbies, and more."
-  }
+    text:
+      "Explore communities built around interests, culture, hobbies, and more.",
+    href: "/communities",
+  },
 ];
 ---
 
 <html lang="en">
+
   <head>
+
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+
+    <title>
+      Discover | Melagram
+    </title>
+
     <meta
       name="description"
       content="Discover people, creators, communities, and conversations on Melagram."
     />
-    <title>Discover — Melagram</title>
+
   </head>
 
-  <body>
-    <div class="min-h-screen overflow-hidden">
 
-      <!-- Luxury frame -->
-      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+  <body
+    class="min-h-screen bg-[#050208] text-[#fff7e5]"
+  >
 
-      <!-- NAV -->
-      <header class="relative z-20 border-b border-[#d9ad55]/30 bg-[#07030d]/90 backdrop-blur">
-        <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-10">
+    <!-- ===================================================== -->
+    <!-- TOP GOLD BAR -->
+    <!-- ===================================================== -->
 
-          <a href="/" class="flex items-center gap-3" aria-label="Melagram Home">
-            <div class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#1a0827] text-[#ffe8a6] shadow-[0_0_18px_rgba(109,25,201,.4)]">
-              M
-            </div>
+    <div
+      class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"
+    ></div>
 
-            <span class="display hidden text-lg tracking-[.18em] text-[#ffe8a6] sm:block">
-              MELAGRAM
-            </span>
+
+    <!-- ===================================================== -->
+    <!-- NAVIGATION -->
+    <!-- ===================================================== -->
+
+    <header
+      class="border-b border-[#d9ad55]/30 bg-[#050208]/95"
+    >
+
+      <div
+        class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4"
+      >
+
+        <a
+          href="/"
+          class="font-serif text-xl font-semibold tracking-[0.18em] text-[#ffe8a6]"
+        >
+          MELAGRAM
+        </a>
+
+
+        <nav
+          class="hidden items-center gap-7 md:flex"
+        >
+
+          <a
+            href="/"
+            class="nav-link text-sm text-[#fff7e5]/80"
+          >
+            Home
           </a>
 
-          <div class="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[.22em] text-white/75 md:flex">
-            <a class="nav-link" href="/">Home</a>
-            <a class="nav-link text-[#d9ad55]" href="/discover">Discover</a>
-            <a class="nav-link" href="/#communities">Communities</a>
-            <a class="nav-link" href="/#creators">Creators</a>
-            <a class="nav-link" href="/about">About</a>
-          </div>
+          <a
+            href="/discover"
+            class="nav-link text-sm text-[#ffe8a6]"
+          >
+            Discover
+          </a>
 
-          <div class="flex items-center gap-3">
-            <a
-              href="#"
-              class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 sm:block"
-            >
-              Log In
-            </a>
+          <a
+            href="/communities"
+            class="nav-link text-sm text-[#fff7e5]/80"
+          >
+            Communities
+          </a>
 
-            <a
-              href="/#join"
-              class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
-            >
-              Join Melagram
-            </a>
-          </div>
+          <a
+            href="/creators"
+            class="nav-link text-sm text-[#fff7e5]/80"
+          >
+            Creators
+          </a>
+
+          <a
+            href="/about"
+            class="nav-link text-sm text-[#fff7e5]/80"
+          >
+            About
+          </a>
 
         </nav>
-      </header>
 
-      <!-- DISCOVER HERO -->
-      <main>
 
-        <section class="relative px-5 pb-16 pt-16 sm:pt-20 lg:px-10">
+        <div
+          class="flex items-center gap-3"
+        >
 
-          <div class="absolute inset-x-0 top-0 h-96 bg-[radial-gradient(circle_at_center,rgba(109,25,201,.25),transparent_65%)]"></div>
+          <a
+            href="/login"
+            class="hidden rounded-full px-4 py-2 text-sm font-semibold text-[#fff7e5]/80 transition hover:text-[#ffe8a6] sm:block"
+          >
+            Log In
+          </a>
 
-          <div class="relative mx-auto max-w-7xl">
+          <a
+            href="/join"
+            class="cta rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+          >
+            Join Melagram
+          </a>
 
-            <div class="mb-8 flex items-center justify-center gap-4">
-              <div class="gold-line w-20 sm:w-40"></div>
+        </div>
 
-              <span class="text-[9px] font-semibold uppercase tracking-[.45em] text-[#d9ad55]">
-                Explore Melagram
-              </span>
+      </div>
 
-              <div class="gold-line w-20 sm:w-40"></div>
-            </div>
+    </header>
 
-            <div class="mx-auto max-w-4xl text-center">
 
-              <p class="text-[10px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">
-                DISCOVER
-              </p>
+    <!-- ===================================================== -->
+    <!-- HERO -->
+    <!-- ===================================================== -->
 
-              <h1 class="display mt-4 text-5xl leading-tight text-[#fff4d4] sm:text-7xl">
-                Find your people.
-              </h1>
+    <main>
 
-              <p class="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/55 sm:text-lg">
-                Discover conversations, creators, communities, and ideas
-                that make Melagram worth coming back to.
-              </p>
+      <section
+        class="relative overflow-hidden px-5 pb-16 pt-16 sm:pt-20 lg:px-10"
+      >
 
-            </div>
+        <div
+          class="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(circle_at_center,rgba(109,25,201,.25),transparent_65%)]"
+        ></div>
 
-          </div>
-        </section>
 
-        <!-- DISCOVERY CARDS -->
-        <section class="border-y border-[#d9ad55]/20 bg-black/30 px-5 py-14 lg:px-10">
+        <div
+          class="relative mx-auto max-w-7xl"
+        >
 
-          <div class="mx-auto grid max-w-7xl gap-6 md:grid-cols-2">
+          <div
+            class="mb-8 flex items-center justify-center gap-4"
+          >
 
-            {categories.map((category) => (
-              <article class="feature-card luxury-panel gold-border rounded-2xl p-7 text-center sm:p-9">
+            <div
+              class="gold-line w-20 sm:w-40"
+            ></div>
 
-                <div class="mx-auto mb-6 grid h-14 w-14 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-2xl">
-                  {category.icon}
-                </div>
+            <span
+              class="text-[9px] font-semibold uppercase tracking-[0.45em] text-[#d9ad55]"
+            >
+              Explore Melagram
+            </span>
 
-                <h2 class="display text-center text-3xl gold-text">
-                  {category.title}
-                </h2>
-
-                <p class="mx-auto mt-4 max-w-xl text-center text-sm leading-7 text-white/55">
-                  {category.text}
-                </p>
-
-                <button
-                  class="mx-auto mt-7 block rounded-xl border border-[#d9ad55]/60 px-6 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black"
-                >
-                  Explore →
-                </button>
-
-              </article>
-            ))}
+            <div
+              class="gold-line w-20 sm:w-40"
+            ></div>
 
           </div>
 
-        </section>
 
-        <!-- COMING SOON -->
-        <section class="px-5 py-20 lg:px-10">
+          <div
+            class="mx-auto max-w-4xl text-center"
+          >
 
-          <div class="luxury-panel gold-border mx-auto max-w-5xl rounded-[2rem] px-6 py-14 text-center sm:px-12">
-
-            <p class="text-[10px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">
-              The Network
+            <p
+              class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
+            >
+              DISCOVER
             </p>
 
-            <h2 class="display mt-4 text-4xl text-[#fff4d4] sm:text-5xl">
-              There's more to discover.
-            </h2>
 
-            <p class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55">
-              Melagram is being built to give people more ways to connect,
-              create, and find communities that feel like home.
+            <h1
+              class="mt-4 font-serif text-5xl leading-tight text-[#fff4d4] sm:text-7xl"
+            >
+              Find your people.
+            </h1>
+
+
+            <p
+              class="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/55 sm:text-lg"
+            >
+              Discover conversations, creators, communities,
+              and people that make Melagram worth coming back to.
             </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ===================================================== -->
+      <!-- DISCOVERY CATEGORIES -->
+      <!-- ===================================================== -->
+
+      <section
+        class="border-y border-[#d9ad55]/20 bg-black/30 px-5 py-14 lg:px-10"
+      >
+
+        <div
+          class="mx-auto grid max-w-7xl gap-6 md:grid-cols-2"
+        >
+
+          {categories.map((category) => (
 
             <a
-              href="/"
-              class="cta mt-8 inline-flex rounded-xl px-8 py-4 text-sm font-bold uppercase tracking-wider"
+              href={category.href}
+              class="luxury-panel gold-border block rounded-2xl p-7 text-center transition hover:-translate-y-1 hover:bg-[#6d19c9]/10 hover:shadow-[0_0_30px_rgba(109,25,201,.25)] sm:p-9"
             >
-              Return Home
+
+              <div
+                class="mx-auto mb-6 grid h-14 w-14 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-2xl"
+              >
+                {category.icon}
+              </div>
+
+
+              <h2
+                class="font-serif text-3xl text-[#ffe8a6]"
+              >
+                {category.title}
+              </h2>
+
+
+              <p
+                class="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/55"
+              >
+                {category.text}
+              </p>
+
+
+              <div
+                class="mx-auto mt-7 inline-flex rounded-xl border border-[#d9ad55]/60 px-6 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6]"
+              >
+                Explore →
+              </div>
+
             </a>
 
-          </div>
+          ))}
 
-        </section>
+        </div>
 
-        <!-- FOOTER -->
-        <footer class="border-t border-[#d9ad55]/20 bg-[#050208] px-5 py-10 lg:px-10">
+      </section>
 
-          <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
 
-            <div>
-              <p class="display text-lg tracking-[.2em] text-[#ffe8a6]">
-                MELAGRAM
-              </p>
+      <!-- ===================================================== -->
+      <!-- PEOPLE TO FOLLOW -->
+      <!-- ===================================================== -->
 
-              <p class="mt-1 text-[10px] uppercase tracking-[.3em] text-white/35">
-                Connect. Network. Create. Build Community.
-              </p>
-            </div>
+      <section
+        id="people"
+        class="px-5 py-20 lg:px-10"
+      >
 
-            <p class="text-xs text-white/30">
-              © 2026 Melagram. All rights reserved.
+        <div
+          class="mx-auto max-w-7xl"
+        >
+
+          <div
+            class="mb-12 text-center"
+          >
+
+            <p
+              class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
+            >
+              FIND YOUR PEOPLE
+            </p>
+
+
+            <h2
+              class="mt-4 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
+            >
+              People to Follow
+            </h2>
+
+
+            <div
+              class="gold-line mx-auto mt-6 w-28"
+            ></div>
+
+
+            <p
+              class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55"
+            >
+              Discover members of the Melagram community
+              and build your network.
             </p>
 
           </div>
 
-        </footer>
 
-      </main>
+          {currentUser && members.length > 0 ? (
 
-      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+            <div
+              class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            >
 
-    </div>
+              {members.map((member) => {
+
+                const displayName =
+                  member.full_name?.trim() ||
+                  member.username ||
+                  "Melagram Member";
+
+                const username =
+                  member.username ||
+                  "member";
+
+                const bio =
+                  member.bio?.trim() ||
+                  "Welcome to Melagram. Connect, network, create, and build community.";
+
+                const isFollowing =
+                  followingIds.has(
+                    member.id
+                  );
+
+                const initials =
+                  displayName
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map(
+                      (name) =>
+                        name[0]
+                    )
+                    .join("")
+                    .toUpperCase();
+
+                return (
+
+                  <article
+                    class="luxury-panel gold-border rounded-2xl p-6 text-center transition hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(109,25,201,.25)]"
+                  >
+
+                    <!-- AVATAR -->
+
+                    <div
+                      class="mx-auto mb-5"
+                    >
+
+                      {member.avatar_url ? (
+
+                        <img
+                          src={member.avatar_url}
+                          alt={`${displayName} profile`}
+                          class="mx-auto h-24 w-24 rounded-full border-2 border-[#d9ad55]/70 object-cover shadow-[0_0_20px_rgba(109,25,201,.25)]"
+                        />
+
+                      ) : (
+
+                        <div
+                          class="mx-auto flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#d9ad55]/70 bg-[radial-gradient(circle_at_center,rgba(109,25,201,.55),rgba(7,3,12,.98)_70%)] text-2xl font-semibold tracking-widest text-[#ffe8a6]"
+                        >
+                          {initials}
+                        </div>
+
+                      )}
+
+                    </div>
+
+
+                    <!-- NAME -->
+
+                    <h3
+                      class="font-serif text-2xl text-[#ffe8a6]"
+                    >
+                      {displayName}
+                    </h3>
+
+
+                    <p
+                      class="mt-1 text-xs text-white/40"
+                    >
+                      @{username}
+                    </p>
+
+
+                    <!-- BIO -->
+
+                    <p
+                      class="mt-4 min-h-[84px] text-sm leading-7 text-white/55"
+                    >
+                      {bio}
+                    </p>
+
+
+                    <!-- ACTIONS -->
+
+                    <div
+                      class="mt-6 grid gap-3"
+                    >
+
+                      <a
+                        href={`/members/${username}`}
+                        class="flex min-h-[48px] items-center justify-center rounded-xl border border-[#d9ad55]/50 px-4 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:border-[#ffe8a6] hover:bg-[#24102f]"
+                      >
+                        View Profile
+                      </a>
+
+
+                      <button
+                        type="button"
+                        class:list={[
+                          "followMemberButton",
+                          "flex",
+                          "min-h-[48px]",
+                          "items-center",
+                          "justify-center",
+                          "rounded-xl",
+                          "px-4",
+                          "py-3",
+                          "text-xs",
+                          "font-bold",
+                          "uppercase",
+                          "tracking-widest",
+                          "transition",
+                          isFollowing
+                            ? [
+                                "border",
+                                "border-[#d9ad55]/60",
+                                "bg-[#24102f]",
+                                "text-[#ffe8a6]",
+                              ]
+                            : [
+                                "cta",
+                                "text-white",
+                              ],
+                        ]}
+                        data-user-id={member.id}
+                        data-following={
+                          isFollowing
+                            ? "true"
+                            : "false"
+                        }
+                      >
+                        {isFollowing
+                          ? "Following"
+                          : "Follow"}
+                      </button>
+
+                    </div>
+
+                  </article>
+
+                );
+
+              })}
+
+            </div>
+
+          ) : currentUser ? (
+
+            <div
+              class="luxury-panel gold-border mx-auto max-w-2xl rounded-2xl p-10 text-center"
+            >
+
+              <div
+                class="text-4xl"
+              >
+                👥
+              </div>
+
+
+              <h3
+                class="mt-5 font-serif text-3xl text-[#ffe8a6]"
+              >
+                You're early.
+              </h3>
+
+
+              <p
+                class="mt-4 text-sm leading-7 text-white/55"
+              >
+                As more people join Melagram,
+                you'll see members here that you can
+                connect with and follow.
+              </p>
+
+
+              <a
+                href="/join"
+                class="cta mt-7 inline-flex rounded-xl px-7 py-3 text-xs font-bold uppercase tracking-widest text-white"
+              >
+                Invite Someone to Melagram
+              </a>
+
+            </div>
+
+          ) : (
+
+            <div
+              class="luxury-panel gold-border mx-auto max-w-2xl rounded-2xl p-10 text-center"
+            >
+
+              <div
+                class="text-4xl"
+              >
+                👋
+              </div>
+
+
+              <h3
+                class="mt-5 font-serif text-3xl text-[#ffe8a6]"
+              >
+                Meet the Melagram community.
+              </h3>
+
+
+              <p
+                class="mt-4 text-sm leading-7 text-white/55"
+              >
+                Sign in to discover members,
+                view profiles, and start building
+                your network.
+              </p>
+
+
+              <div
+                class="mt-7 flex flex-col justify-center gap-3 sm:flex-row"
+              >
+
+                <a
+                  href="/login"
+                  class="cta rounded-xl px-7 py-3 text-xs font-bold uppercase tracking-widest text-white"
+                >
+                  Log In
+                </a>
+
+                <a
+                  href="/join"
+                  class="rounded-xl border border-[#d9ad55]/60 px-7 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#24102f]"
+                >
+                  Join Melagram
+                </a>
+
+              </div>
+
+            </div>
+
+          )}
+
+        </div>
+
+      </section>
+
+
+      <!-- ===================================================== -->
+      <!-- TRENDING -->
+      <!-- ===================================================== -->
+
+      <section
+        id="trending"
+        class="border-y border-[#d9ad55]/20 bg-black/30 px-5 py-20 lg:px-10"
+      >
+
+        <div
+          class="mx-auto max-w-5xl text-center"
+        >
+
+          <p
+            class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
+          >
+            TRENDING NOW
+          </p>
+
+
+          <h2
+            class="mt-4 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
+          >
+            Conversations are coming.
+          </h2>
+
+
+          <div
+            class="gold-line mx-auto mt-6 w-28"
+          ></div>
+
+
+          <p
+            class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55"
+          >
+            Trending conversations will surface here
+            as the Melagram community grows and more
+            people share their voices.
+          </p>
+
+        </div>
+
+      </section>
+
+
+      <!-- ===================================================== -->
+      <!-- MORE TO DISCOVER -->
+      <!-- ===================================================== -->
+
+      <section
+        class="px-5 py-20 lg:px-10"
+      >
+
+        <div
+          class="luxury-panel gold-border mx-auto max-w-5xl rounded-[2rem] px-6 py-14 text-center sm:px-12"
+        >
+
+          <p
+            class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
+          >
+            THE NETWORK
+          </p>
+
+
+          <h2
+            class="mt-4 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
+          >
+            There's more to discover.
+          </h2>
+
+
+          <p
+            class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55"
+          >
+            Melagram is being built to give people more
+            ways to connect, create, and find communities
+            that feel like home.
+          </p>
+
+
+          <a
+            href="/"
+            class="cta mt-8 inline-flex rounded-xl px-8 py-4 text-sm font-bold uppercase tracking-wider text-white"
+          >
+            Return Home
+          </a>
+
+        </div>
+
+      </section>
+
+
+      <!-- ===================================================== -->
+      <!-- FOOTER -->
+      <!-- ===================================================== -->
+
+      <footer
+        class="border-t border-[#d9ad55]/20 bg-[#050208]"
+      >
+
+        <div
+          class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-10 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left"
+        >
+
+          <div>
+
+            <p
+              class="font-serif text-lg tracking-[0.2em] text-[#ffe8a6]"
+            >
+              MELAGRAM
+            </p>
+
+
+            <p
+              class="mt-1 text-[10px] uppercase tracking-[0.3em] text-white/35"
+            >
+              Connect. Network. Create. Build Community.
+            </p>
+
+          </div>
+
+
+          <div
+            class="flex flex-wrap justify-center gap-5 text-xs text-white/35 sm:justify-end"
+          >
+
+            <a
+              href="/about"
+              class="transition hover:text-[#ffe8a6]"
+            >
+              About
+            </a>
+
+            <a
+              href="/terms"
+              class="transition hover:text-[#ffe8a6]"
+            >
+              Terms
+            </a>
+
+            <a
+              href="/privacy"
+              class="transition hover:text-[#ffe8a6]"
+            >
+              Privacy
+            </a>
+
+            <span>
+              © 2026 Melagram. All rights reserved.
+            </span>
+
+          </div>
+
+        </div>
+
+      </footer>
+
+    </main>
+
+
+    <!-- ===================================================== -->
+    <!-- FOLLOW INTERACTIONS -->
+    <!-- ===================================================== -->
+
+    <script>
+
+      import { actions } from "astro:actions";
+
+
+      const followButtons =
+        document.querySelectorAll(
+          ".followMemberButton"
+        );
+
+
+      followButtons.forEach(
+        (button) => {
+
+          button.addEventListener(
+            "click",
+            async () => {
+
+              const followButton =
+                button as HTMLButtonElement;
+
+              const userId =
+                followButton.dataset.userId;
+
+              if (!userId) {
+                return;
+              }
+
+              if (
+                followButton.disabled
+              ) {
+                return;
+              }
+
+
+              const currentlyFollowing =
+                followButton.dataset.following ===
+                "true";
+
+
+              followButton.disabled =
+                true;
+
+
+              followButton.textContent =
+                currentlyFollowing
+                  ? "Unfollowing..."
+                  : "Following...";
+
+
+              const {
+                data,
+                error,
+              } =
+                await actions.toggleFollow({
+                  userId,
+                });
+
+
+              if (
+                error ||
+                !data?.success
+              ) {
+
+                followButton.disabled =
+                  false;
+
+                followButton.textContent =
+                  currentlyFollowing
+                    ? "Following"
+                    : "Follow";
+
+                alert(
+                  data?.message ||
+                    "We couldn't update your follow."
+                );
+
+                return;
+
+              }
+
+
+              const following =
+                data.following;
+
+
+              followButton.dataset.following =
+                following
+                  ? "true"
+                  : "false";
+
+
+              followButton.textContent =
+                following
+                  ? "Following"
+                  : "Follow";
+
+
+              /*
+                 Update button styling
+              */
+
+              followButton.classList.toggle(
+                "cta",
+                !following
+              );
+
+              followButton.classList.toggle(
+                "text-white",
+                !following
+              );
+
+              followButton.classList.toggle(
+                "border",
+                following
+              );
+
+              followButton.classList.toggle(
+                "border-[#d9ad55]/60",
+                following
+              );
+
+              followButton.classList.toggle(
+                "bg-[#24102f]",
+                following
+              );
+
+              followButton.classList.toggle(
+                "text-[#ffe8a6]",
+                following
+              );
+
+
+              followButton.disabled =
+                false;
+
+            }
+          );
+
+        }
+      );
+
+    </script>
+
+
+    <!-- ===================================================== -->
+    <!-- BOTTOM GOLD BAR -->
+    <!-- ===================================================== -->
+
+    <div
+      class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"
+    ></div>
+
   </body>
+
 </html>

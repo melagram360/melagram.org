@@ -22,7 +22,8 @@ const displayName =
   user.email?.split("@")[0] ||
   "Member";
 
-const signOutResult = Astro.getActionResult(actions.signOut);
+const signOutResult =
+  Astro.getActionResult(actions.signOut);
 
 if (signOutResult?.data?.success) {
   return Astro.redirect("/");
@@ -44,22 +45,72 @@ const {
   .eq("is_read", false);
 
 /* --------------------------------
-   SOCIAL FEED
+   PEOPLE I FOLLOW
 --------------------------------- */
 
 const {
-  data: posts,
-  error: postsError,
+  data: followingRows,
+  error: followingError,
 } = await supabase
-  .from("posts")
-  .select("id, user_id, content, created_at")
-  .order("created_at", { ascending: false });
+  .from("follows")
+  .select("following_id")
+  .eq("follower_id", user.id);
 
-let feedPosts: any[] = [];
+const followingIds =
+  (followingRows ?? []).map(
+    (follow) => follow.following_id
+  );
 
-if (!postsError && posts && posts.length > 0) {
+/* --------------------------------
+   FEED USER IDS
+
+   Always include yourself.
+--------------------------------- */
+
+const feedUserIds = [
+  user.id,
+  ...followingIds.filter(
+    (id) => id !== user.id
+  ),
+];
+
+/* --------------------------------
+   SOCIAL FEED
+--------------------------------- */
+
+let posts = [];
+let postsError = null;
+
+if (
+  !followingError &&
+  feedUserIds.length > 0
+) {
+  const result = await supabase
+    .from("posts")
+    .select(
+      "id, user_id, content, created_at, community_slug"
+    )
+    .in("user_id", feedUserIds)
+    .order("created_at", {
+      ascending: false,
+    });
+
+  posts = result.data ?? [];
+  postsError = result.error;
+}
+
+let feedPosts = [];
+
+if (
+  !postsError &&
+  posts.length > 0
+) {
   const userIds = [
-    ...new Set(posts.map((post) => post.user_id)),
+    ...new Set(
+      posts.map(
+        (post) => post.user_id
+      )
+    ),
   ];
 
   /* --------------------------------
@@ -68,15 +119,19 @@ if (!postsError && posts && posts.length > 0) {
 
   const {
     data: profiles,
-    error: profilesError,
   } = await supabase
     .from("profiles")
-    .select("id, username, full_name, avatar_url")
+    .select(
+      "id, username, full_name, avatar_url"
+    )
     .in("id", userIds);
 
   const profileMap = new Map(
     (profiles ?? []).map(
-      (profile) => [profile.id, profile]
+      (profile) => [
+        profile.id,
+        profile,
+      ]
     )
   );
 
@@ -93,23 +148,36 @@ if (!postsError && posts && posts.length > 0) {
     error: likesError,
   } = await supabase
     .from("post_likes")
-    .select("post_id, user_id")
+    .select(
+      "post_id, user_id"
+    )
     .in("post_id", postIds);
 
-  const likeCountMap =
-    new Map<string, number>();
+  const likeCountMap = new Map();
 
   const likedByCurrentUser =
-    new Set<string>();
+    new Set();
 
-  if (!likesError && likes) {
-    for (const like of likes) {
+  if (
+    !likesError &&
+    likes
+  ) {
+    for (
+      const like of likes
+    ) {
       likeCountMap.set(
         like.post_id,
-        (likeCountMap.get(like.post_id) ?? 0) + 1
+        (
+          likeCountMap.get(
+            like.post_id
+          ) ?? 0
+        ) + 1
       );
 
-      if (like.user_id === user.id) {
+      if (
+        like.user_id ===
+        user.id
+      ) {
         likedByCurrentUser.add(
           like.post_id
         );
@@ -135,13 +203,22 @@ if (!postsError && posts && posts.length > 0) {
     });
 
   const commentCountMap =
-    new Map<string, number>();
+    new Map();
 
-  if (!commentsError && comments) {
-    for (const comment of comments) {
+  if (
+    !commentsError &&
+    comments
+  ) {
+    for (
+      const comment of comments
+    ) {
       commentCountMap.set(
         comment.post_id,
-        (commentCountMap.get(comment.post_id) ?? 0) + 1
+        (
+          commentCountMap.get(
+            comment.post_id
+          ) ?? 0
+        ) + 1
       );
     }
   }
@@ -151,9 +228,11 @@ if (!postsError && posts && posts.length > 0) {
   --------------------------------- */
 
   const commentUserIds =
-    !commentsError && comments
+    !commentsError &&
+    comments
       ? comments.map(
-          (comment) => comment.user_id
+          (comment) =>
+            comment.user_id
         )
       : [];
 
@@ -166,15 +245,23 @@ if (!postsError && posts && posts.length > 0) {
 
   const {
     data: allProfiles,
-  } = await supabase
-    .from("profiles")
-    .select(
-      "id, username, full_name, avatar_url"
-    )
-    .in("id", allProfileIds);
+  } =
+    await supabase
+      .from("profiles")
+      .select(
+        "id, username, full_name, avatar_url"
+      )
+      .in(
+        "id",
+        allProfileIds
+      );
 
   const allProfileMap = new Map(
-    (allProfiles ?? profiles ?? []).map(
+    (
+      allProfiles ??
+      profiles ??
+      []
+    ).map(
       (profile) => [
         profile.id,
         profile,
@@ -182,11 +269,20 @@ if (!postsError && posts && posts.length > 0) {
     )
   );
 
-  const commentsByPost =
-    new Map<string, any[]>();
+  /* --------------------------------
+     COMMENTS BY POST
+  --------------------------------- */
 
-  if (!commentsError && comments) {
-    for (const comment of comments) {
+  const commentsByPost =
+    new Map();
+
+  if (
+    !commentsError &&
+    comments
+  ) {
+    for (
+      const comment of comments
+    ) {
       const existing =
         commentsByPost.get(
           comment.post_id
@@ -208,61 +304,79 @@ if (!postsError && posts && posts.length > 0) {
   }
 
   /* --------------------------------
-     BUILD FEED
+     FINAL FEED
   --------------------------------- */
 
-  feedPosts = posts.map((post) => ({
-    ...post,
+  feedPosts =
+    posts.map(
+      (post) => ({
+        ...post,
 
-    profile:
-      allProfileMap.get(
-        post.user_id
-      ) ??
-      profileMap.get(
-        post.user_id
-      ) ??
-      null,
+        profile:
+          allProfileMap.get(
+            post.user_id
+          ) ??
+          profileMap.get(
+            post.user_id
+          ) ??
+          null,
 
-    likeCount:
-      likeCountMap.get(post.id) ?? 0,
+        likeCount:
+          likeCountMap.get(
+            post.id
+          ) ?? 0,
 
-    likedByCurrentUser:
-      likedByCurrentUser.has(
-        post.id
-      ),
+        likedByCurrentUser:
+          likedByCurrentUser.has(
+            post.id
+          ),
 
-    commentCount:
-      commentCountMap.get(
-        post.id
-      ) ?? 0,
+        commentCount:
+          commentCountMap.get(
+            post.id
+          ) ?? 0,
 
-    comments:
-      commentsByPost.get(
-        post.id
-      ) ?? [],
-  }));
+        comments:
+          commentsByPost.get(
+            post.id
+          ) ?? [],
+      })
+    );
 }
 ---
 
 <html lang="en">
+
   <head>
+
     <meta charset="UTF-8" />
+
     <meta
       name="viewport"
       content="width=device-width"
     />
-    <title>Melagram — Dashboard</title>
+
+    <title>
+      Melagram — Dashboard
+    </title>
+
   </head>
 
+
   <body>
+
     <main
       class="min-h-screen bg-[#050208] text-[#fff7e5]"
     >
 
-      <!-- Navigation -->
+      <!-- ================================================= -->
+      <!-- NAVIGATION -->
+      <!-- ================================================= -->
+
       <nav
         class="border-b border-[#d9ad55]/20 bg-black/40 backdrop-blur-xl"
       >
+
         <div
           class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8"
         >
@@ -271,6 +385,7 @@ if (!postsError && posts && posts.length > 0) {
             href="/"
             class="flex items-center gap-3"
           >
+
             <div
               class="flex h-10 w-10 items-center justify-center rounded-full border border-[#d9ad55]/60 bg-[#6d19c9]/20 text-lg font-semibold text-[#ffe8a6]"
             >
@@ -282,11 +397,14 @@ if (!postsError && posts && posts.length > 0) {
             >
               MELAGRAM
             </span>
+
           </a>
+
 
           <div
             class="hidden items-center gap-7 text-sm text-white/70 md:flex"
           >
+
             <a
               href="/discover"
               class="nav-link"
@@ -307,31 +425,46 @@ if (!postsError && posts && posts.length > 0) {
             >
               Creators
             </a>
+
           </div>
 
-          <div class="flex items-center gap-2">
+
+          <div
+            class="flex items-center gap-2"
+          >
 
             <a
               href="/notifications"
               aria-label="Notifications"
               class="relative inline-flex items-center justify-center rounded-full border border-[#d9ad55]/50 px-3 py-2 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
             >
-              <span aria-hidden="true">🔔</span>
-              <span class="ml-1 hidden sm:inline">
+
+              <span aria-hidden="true">
+                🔔
+              </span>
+
+              <span
+                class="ml-1 hidden sm:inline"
+              >
                 Notifications
               </span>
 
+
               {unreadNotificationCount &&
                 unreadNotificationCount > 0 && (
-                  <span
-                    class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6d19c9] px-1 text-[10px] font-bold text-white ring-2 ring-black"
-                  >
-                    {unreadNotificationCount > 99
-                      ? "99+"
-                      : unreadNotificationCount}
-                  </span>
-                )}
+
+                <span
+                  class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6d19c9] px-1 text-[10px] font-bold text-white ring-2 ring-black"
+                >
+                  {unreadNotificationCount > 99
+                    ? "99+"
+                    : unreadNotificationCount}
+                </span>
+
+              )}
+
             </a>
+
 
             <a
               href="/profile"
@@ -339,6 +472,7 @@ if (!postsError && posts && posts.length > 0) {
             >
               {displayName}
             </a>
+
 
             <button
               id="signout-btn"
@@ -351,9 +485,14 @@ if (!postsError && posts && posts.length > 0) {
           </div>
 
         </div>
+
       </nav>
 
-      <!-- Welcome -->
+
+      <!-- ================================================= -->
+      <!-- WELCOME -->
+      <!-- ================================================= -->
+
       <section
         class="relative overflow-hidden"
       >
@@ -362,11 +501,14 @@ if (!postsError && posts && posts.length > 0) {
           class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(109,25,201,.28),transparent_42rem)]"
         ></div>
 
+
         <div
           class="relative mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:py-20"
         >
 
-          <div class="max-w-3xl">
+          <div
+            class="max-w-3xl"
+          >
 
             <p
               class="mb-4 text-xs font-semibold uppercase tracking-[0.35em] text-[#d9ad55]"
@@ -374,11 +516,13 @@ if (!postsError && posts && posts.length > 0) {
               Your Melagram
             </p>
 
+
             <h1
               class="text-4xl font-semibold leading-tight text-[#ffe8a6] sm:text-5xl lg:text-6xl"
             >
               Welcome Home.
             </h1>
+
 
             <p
               class="mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg"
@@ -394,7 +538,11 @@ if (!postsError && posts && posts.length > 0) {
 
       </section>
 
-      <!-- Quick Actions -->
+
+      <!-- ================================================= -->
+      <!-- QUICK ACTIONS -->
+      <!-- ================================================= -->
+
       <section
         class="mx-auto max-w-7xl px-5 pb-12 sm:px-8"
       >
@@ -430,6 +578,7 @@ if (!postsError && posts && posts.length > 0) {
 
           </a>
 
+
           <a
             href="/communities"
             class="feature-card gold-border luxury-panel rounded-2xl p-6"
@@ -455,6 +604,7 @@ if (!postsError && posts && posts.length > 0) {
             </p>
 
           </a>
+
 
           <a
             href="/creators"
@@ -486,7 +636,11 @@ if (!postsError && posts && posts.length > 0) {
 
       </section>
 
-      <!-- Social Feed -->
+
+      <!-- ================================================= -->
+      <!-- SOCIAL FEED -->
+      <!-- ================================================= -->
+
       <section
         class="mx-auto max-w-7xl px-5 pb-20 sm:px-8"
       >
@@ -495,7 +649,8 @@ if (!postsError && posts && posts.length > 0) {
           class="grid gap-8 lg:grid-cols-[1fr_320px]"
         >
 
-          <!-- Feed Column -->
+          <!-- FEED -->
+
           <div>
 
             <div
@@ -510,19 +665,22 @@ if (!postsError && posts && posts.length > 0) {
                   Social
                 </p>
 
+
                 <h2
                   class="mt-2 text-3xl text-[#ffe8a6]"
                 >
                   Your Feed
                 </h2>
 
+
                 <p
                   class="mt-2 text-sm text-white/45"
                 >
-                  What's happening across Melagram.
+                  Posts from you and the people you follow.
                 </p>
 
               </div>
+
 
               <a
                 href="/create-post"
@@ -533,7 +691,9 @@ if (!postsError && posts && posts.length > 0) {
 
             </div>
 
-            <!-- Mobile Create Post -->
+
+            <!-- MOBILE CREATE -->
+
             <a
               href="/create-post"
               class="mb-5 flex w-full items-center justify-center rounded-full bg-[#6d19c9] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#7d27dc] sm:hidden"
@@ -541,7 +701,7 @@ if (!postsError && posts && posts.length > 0) {
               + Create Post
             </a>
 
-            <!-- Feed Error -->
+
             {postsError ? (
 
               <div
@@ -561,7 +721,7 @@ if (!postsError && posts && posts.length > 0) {
                 <p
                   class="mt-3 text-sm leading-7 text-white/55"
                 >
-                  We had trouble retrieving your posts.
+                  We had trouble retrieving your feed.
                   Please refresh the page and try again.
                 </p>
 
@@ -569,7 +729,6 @@ if (!postsError && posts && posts.length > 0) {
 
             ) : feedPosts.length === 0 ? (
 
-              <!-- Empty Feed -->
               <div
                 class="gold-border luxury-panel rounded-2xl p-7 sm:p-9"
               >
@@ -584,27 +743,40 @@ if (!postsError && posts && posts.length > 0) {
                   ✦
                 </div>
 
+
                 <h3
                   class="mt-6 text-2xl text-[#ffe8a6]"
                 >
                   Your Melagram starts here.
                 </h3>
 
+
                 <p
                   class="mt-4 max-w-2xl text-sm leading-7 text-white/60"
                 >
-                  There aren't any posts here yet.
-                  Start the conversation and let the
-                  Melagram community hear from you.
+                  You don't have any posts in your
+                  network yet. Start the conversation
+                  or discover people to follow.
                 </p>
 
-                <div class="mt-7">
+
+                <div
+                  class="mt-7 flex flex-col gap-3 sm:flex-row"
+                >
 
                   <a
                     href="/create-post"
-                    class="cta inline-flex rounded-full px-6 py-3 text-sm font-semibold text-white"
+                    class="cta inline-flex justify-center rounded-full px-6 py-3 text-sm font-semibold text-white"
                   >
-                    Create Your First Post
+                    Create a Post
+                  </a>
+
+
+                  <a
+                    href="/discover"
+                    class="inline-flex justify-center rounded-full border border-[#d9ad55]/50 px-6 py-3 text-sm font-semibold text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+                  >
+                    Find People to Follow
                   </a>
 
                 </div>
@@ -613,389 +785,422 @@ if (!postsError && posts && posts.length > 0) {
 
             ) : (
 
-              <!-- Posts -->
               <div
                 class="space-y-5"
               >
 
-                {feedPosts.map((post) => {
+                {feedPosts.map(
+                  (post) => {
 
-                  const profile =
-                    post.profile;
+                    const profile =
+                      post.profile;
 
-                  const postName =
-                    profile?.full_name ||
-                    profile?.username ||
-                    "Melagram Member";
+                    const postName =
+                      profile?.full_name ||
+                      profile?.username ||
+                      "Melagram Member";
 
-                  const username =
-                    profile?.username
-                      ? `@${profile.username}`
-                      : "";
+                    const username =
+                      profile?.username
+                        ? `@${profile.username}`
+                        : "";
 
-                  const avatarUrl =
-                    profile?.avatar_url;
+                    const avatarUrl =
+                      profile?.avatar_url;
 
-                  const postDate =
-                    post.created_at
-                      ? new Date(
-                          post.created_at
-                        ).toLocaleString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                          }
-                        )
-                      : "";
+                    const postDate =
+                      post.created_at
+                        ? new Date(
+                            post.created_at
+                          ).toLocaleString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            }
+                          )
+                        : "";
 
-                  return (
+                    return (
 
-                    <article
-                      id={`post-${post.id}`}
-                      class="gold-border luxury-panel rounded-2xl p-6 transition duration-300 hover:border-[#d9ad55]/50 sm:p-7"
-                    >
-
-                      <!-- Author -->
-                      <div
-                        class="flex items-start gap-4"
+                      <article
+                        id={`post-${post.id}`}
+                        class="gold-border luxury-panel rounded-2xl p-6 transition duration-300 hover:border-[#d9ad55]/50 sm:p-7"
                       >
 
-                        {avatarUrl ? (
-
-                          <img
-                            src={avatarUrl}
-                            alt={postName}
-                            class="h-12 w-12 shrink-0 rounded-full border border-[#d9ad55]/40 object-cover"
-                          />
-
-                        ) : (
-
-                          <div
-                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/40 bg-[#6d19c9]/20 text-lg font-semibold text-[#ffe8a6]"
-                          >
-                            {postName
-                              .charAt(0)
-                              .toUpperCase()}
-                          </div>
-
-                        )}
+                        <!-- AUTHOR -->
 
                         <div
-                          class="min-w-0 flex-1"
+                          class="flex items-start gap-4"
                         >
 
+                          {avatarUrl ? (
+
+                            <img
+                              src={avatarUrl}
+                              alt={postName}
+                              class="h-12 w-12 shrink-0 rounded-full border border-[#d9ad55]/40 object-cover"
+                            />
+
+                          ) : (
+
+                            <div
+                              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/40 bg-[#6d19c9]/20 text-lg font-semibold text-[#ffe8a6]"
+                            >
+                              {postName
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+
+                          )}
+
+
                           <div
-                            class="flex flex-wrap items-baseline gap-x-2 gap-y-1"
+                            class="min-w-0 flex-1"
                           >
 
-                            <span
-                              class="font-semibold text-[#ffe8a6]"
+                            <div
+                              class="flex flex-wrap items-baseline gap-x-2 gap-y-1"
                             >
-                              {postName}
-                            </span>
-
-                            {username && (
 
                               <span
-                                class="text-sm text-white/40"
+                                class="font-semibold text-[#ffe8a6]"
                               >
-                                {username}
+                                {postName}
                               </span>
+
+
+                              {username && (
+
+                                <span
+                                  class="text-sm text-white/40"
+                                >
+                                  {username}
+                                </span>
+
+                              )}
+
+                            </div>
+
+
+                            {postDate && (
+
+                              <p
+                                class="mt-1 text-xs text-white/35"
+                              >
+                                {postDate}
+                              </p>
 
                             )}
 
                           </div>
 
-                          {postDate && (
+                        </div>
 
-                            <p
-                              class="mt-1 text-xs text-white/35"
+
+                        <!-- CONTENT -->
+
+                        <div
+                          class="mt-5 border-t border-white/10 pt-5"
+                        >
+
+                          {post.community_slug && (
+
+                            <a
+                              href={`/communities/${post.community_slug}`}
+                              class="mb-3 inline-flex rounded-full border border-[#d9ad55]/30 bg-[#6d19c9]/10 px-3 py-1 text-[10px] uppercase tracking-[0.15em] text-[#ffe8a6]"
                             >
-                              {postDate}
-                            </p>
+                              {post.community_slug}
+                            </a>
 
                           )}
 
+
+                          <p
+                            class="whitespace-pre-wrap text-[15px] leading-7 text-white/80"
+                          >
+                            {post.content}
+                          </p>
+
                         </div>
 
-                      </div>
 
-                      <!-- Content -->
-                      <div
-                        class="mt-5 border-t border-white/10 pt-5"
-                      >
+                        <!-- ENGAGEMENT -->
 
-                        <p
-                          class="whitespace-pre-wrap text-[15px] leading-7 text-white/80"
-                        >
-                          {post.content}
-                        </p>
-
-                      </div>
-
-                      <!-- Engagement -->
-                      <div
-                        class="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4"
-                      >
-
-                        <!-- LIKE -->
-                        <button
-                          type="button"
-                          class:list={[
-                            "like-btn",
-                            "inline-flex",
-                            "items-center",
-                            "gap-2",
-                            "rounded-full",
-                            "px-3",
-                            "py-2",
-                            "text-xs",
-                            "uppercase",
-                            "tracking-[0.12em]",
-                            "transition",
-                            post.likedByCurrentUser
-                              ? "bg-[#6d19c9]/25 text-[#ffe8a6]"
-                              : "text-white/40 hover:bg-[#6d19c9]/15 hover:text-[#ffe8a6]",
-                          ]}
-                          data-post-id={post.id}
-                          aria-pressed={
-                            post.likedByCurrentUser
-                              ? "true"
-                              : "false"
-                          }
-                        >
-
-                          <span
-                            class="like-icon text-base"
-                          >
-                            {post.likedByCurrentUser
-                              ? "♥"
-                              : "♡"}
-                          </span>
-
-                          <span
-                            class="like-label"
-                          >
-                            {post.likedByCurrentUser
-                              ? "Liked"
-                              : "Like"}
-                          </span>
-
-                          <span
-                            class="like-count"
-                          >
-                            {post.likeCount}
-                          </span>
-
-                        </button>
-
-                        <!-- COMMENT -->
-                        <button
-                          type="button"
-                          class="comment-toggle inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/40 transition hover:bg-[#6d19c9]/15 hover:text-[#ffe8a6]"
-                          data-post-id={post.id}
-                        >
-
-                          <span>
-                            ○
-                          </span>
-
-                          <span>
-                            Comment
-                          </span>
-
-                          <span
-                            class="comment-count"
-                          >
-                            {post.commentCount}
-                          </span>
-
-                        </button>
-
-                        <!-- SHARE -->
-                        <button
-                          type="button"
-                          class="share-btn inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/40 transition hover:bg-[#6d19c9]/15 hover:text-[#ffe8a6]"
-                          data-post-id={post.id}
-                        >
-
-                          <span
-                            class="share-icon"
-                          >
-                            ↗
-                          </span>
-
-                          <span
-                            class="share-label"
-                          >
-                            Share
-                          </span>
-
-                        </button>
-
-                      </div>
-
-                      <!-- Comment Area -->
-                      <div
-                        class="comment-area mt-4 hidden border-t border-white/10 pt-4"
-                        data-post-id={post.id}
-                      >
-
-                        <!-- Existing Comments -->
                         <div
-                          class="comment-list space-y-3"
+                          class="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4"
                         >
 
-                          {post.comments.length > 0 ? (
+                          <!-- LIKE -->
 
-                            post.comments.map(
-                              (comment: any) => {
+                          <button
+                            type="button"
+                            class:list={[
+                              "like-btn",
+                              "inline-flex",
+                              "items-center",
+                              "gap-2",
+                              "rounded-full",
+                              "px-3",
+                              "py-2",
+                              "text-xs",
+                              "uppercase",
+                              "tracking-[0.12em]",
+                              post.likedByCurrentUser
+                                ? "bg-[#6d19c9]/25 text-[#ffe8a6]"
+                                : "text-white/40 hover:bg-[#6d19c9]/15 hover:text-[#ffe8a6]",
+                            ]}
+                            data-post-id={post.id}
+                            aria-pressed={
+                              post.likedByCurrentUser
+                                ? "true"
+                                : "false"
+                            }
+                          >
 
-                                const commentProfile =
-                                  comment.profile;
+                            <span
+                              class="like-icon text-base"
+                            >
+                              {post.likedByCurrentUser
+                                ? "♥"
+                                : "♡"}
+                            </span>
 
-                                const commentName =
-                                  commentProfile?.full_name ||
-                                  commentProfile?.username ||
-                                  "Melagram Member";
 
-                                const commentAvatar =
-                                  commentProfile?.avatar_url;
+                            <span
+                              class="like-label"
+                            >
+                              {post.likedByCurrentUser
+                                ? "Liked"
+                                : "Like"}
+                            </span>
 
-                                const commentDate =
-                                  comment.created_at
-                                    ? new Date(
-                                        comment.created_at
-                                      ).toLocaleString(
-                                        "en-US",
-                                        {
-                                          month: "short",
-                                          day: "numeric",
-                                          hour: "numeric",
-                                          minute: "2-digit",
-                                        }
-                                      )
-                                    : "";
 
-                                return (
+                            <span
+                              class="like-count"
+                            >
+                              {post.likeCount}
+                            </span>
 
-                                  <div
-                                    class="flex gap-3 rounded-xl border border-white/10 bg-black/20 p-3"
-                                  >
+                          </button>
 
-                                    {commentAvatar ? (
 
-                                      <img
-                                        src={commentAvatar}
-                                        alt={commentName}
-                                        class="h-9 w-9 shrink-0 rounded-full border border-[#d9ad55]/30 object-cover"
-                                      />
+                          <!-- COMMENT -->
 
-                                    ) : (
+                          <button
+                            type="button"
+                            class="comment-toggle inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/40 transition hover:bg-[#6d19c9]/15 hover:text-[#ffe8a6]"
+                            data-post-id={post.id}
+                          >
 
-                                      <div
-                                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/30 bg-[#6d19c9]/15 text-sm font-semibold text-[#ffe8a6]"
-                                      >
-                                        {commentName
-                                          .charAt(0)
-                                          .toUpperCase()}
-                                      </div>
+                            <span>
+                              ○
+                            </span>
 
-                                    )}
+                            <span>
+                              Comment
+                            </span>
+
+                            <span
+                              class="comment-count"
+                            >
+                              {post.commentCount}
+                            </span>
+
+                          </button>
+
+
+                          <!-- SHARE -->
+
+                          <button
+                            type="button"
+                            class="share-btn inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/40 transition hover:bg-[#6d19c9]/15 hover:text-[#ffe8a6]"
+                            data-post-id={post.id}
+                          >
+
+                            <span
+                              class="share-icon"
+                            >
+                              ↗
+                            </span>
+
+                            <span
+                              class="share-label"
+                            >
+                              Share
+                            </span>
+
+                          </button>
+
+                        </div>
+
+
+                        <!-- COMMENTS -->
+
+                        <div
+                          class="comment-area mt-4 hidden border-t border-white/10 pt-4"
+                          data-post-id={post.id}
+                        >
+
+                          <div
+                            class="comment-list space-y-3"
+                          >
+
+                            {post.comments.length > 0 ? (
+
+                              post.comments.map(
+                                (comment) => {
+
+                                  const commentProfile =
+                                    comment.profile;
+
+                                  const commentName =
+                                    commentProfile?.full_name ||
+                                    commentProfile?.username ||
+                                    "Melagram Member";
+
+                                  const commentAvatar =
+                                    commentProfile?.avatar_url;
+
+                                  const commentDate =
+                                    comment.created_at
+                                      ? new Date(
+                                          comment.created_at
+                                        ).toLocaleString(
+                                          "en-US",
+                                          {
+                                            month: "short",
+                                            day: "numeric",
+                                            hour: "numeric",
+                                            minute: "2-digit",
+                                          }
+                                        )
+                                      : "";
+
+                                  return (
 
                                     <div
-                                      class="min-w-0 flex-1"
+                                      class="flex gap-3 rounded-xl border border-white/10 bg-black/20 p-3"
                                     >
 
+                                      {commentAvatar ? (
+
+                                        <img
+                                          src={commentAvatar}
+                                          alt={commentName}
+                                          class="h-9 w-9 shrink-0 rounded-full border border-[#d9ad55]/30 object-cover"
+                                        />
+
+                                      ) : (
+
+                                        <div
+                                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/30 bg-[#6d19c9]/15 text-sm font-semibold text-[#ffe8a6]"
+                                        >
+                                          {commentName
+                                            .charAt(0)
+                                            .toUpperCase()}
+                                        </div>
+
+                                      )}
+
+
                                       <div
-                                        class="flex flex-wrap items-baseline gap-x-2"
+                                        class="min-w-0 flex-1"
                                       >
 
-                                        <span
-                                          class="text-sm font-semibold text-[#ffe8a6]"
+                                        <div
+                                          class="flex flex-wrap items-baseline gap-x-2"
                                         >
-                                          {commentName}
-                                        </span>
-
-                                        {commentDate && (
 
                                           <span
-                                            class="text-[11px] text-white/30"
+                                            class="text-sm font-semibold text-[#ffe8a6]"
                                           >
-                                            {commentDate}
+                                            {commentName}
                                           </span>
 
-                                        )}
+
+                                          {commentDate && (
+
+                                            <span
+                                              class="text-[11px] text-white/30"
+                                            >
+                                              {commentDate}
+                                            </span>
+
+                                          )}
+
+                                        </div>
+
+
+                                        <p
+                                          class="mt-1 whitespace-pre-wrap text-sm leading-6 text-white/70"
+                                        >
+                                          {comment.content}
+                                        </p>
 
                                       </div>
-
-                                      <p
-                                        class="mt-1 whitespace-pre-wrap text-sm leading-6 text-white/70"
-                                      >
-                                        {comment.content}
-                                      </p>
 
                                     </div>
 
-                                  </div>
+                                  );
 
-                                );
+                                }
+                              )
 
-                              }
-                            )
+                            ) : (
 
-                          ) : (
+                              <p
+                                class="py-2 text-sm text-white/35"
+                              >
+                                No comments yet. Be the
+                                first to join the conversation.
+                              </p>
 
-                            <p
-                              class="py-2 text-sm text-white/35"
+                            )}
+
+                          </div>
+
+
+                          <form
+                            class="comment-form mt-4 flex gap-2"
+                            data-post-id={post.id}
+                          >
+
+                            <input
+                              type="text"
+                              name="content"
+                              maxlength="1000"
+                              required
+                              placeholder="Write a comment..."
+                              class="min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#d9ad55]/50"
+                            />
+
+
+                            <button
+                              type="submit"
+                              class="comment-submit rounded-full bg-[#6d19c9] px-5 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#7d27dc]"
                             >
-                              No comments yet. Be the first
-                              to join the conversation.
-                            </p>
+                              Post
+                            </button>
 
-                          )}
+                          </form>
+
+
+                          <p
+                            class="comment-message mt-2 hidden text-xs text-red-300"
+                          ></p>
 
                         </div>
 
-                        <!-- New Comment -->
-                        <form
-                          class="comment-form mt-4 flex gap-2"
-                          data-post-id={post.id}
-                        >
+                      </article>
 
-                          <input
-                            type="text"
-                            name="content"
-                            maxlength="1000"
-                            required
-                            placeholder="Write a comment..."
-                            class="min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#d9ad55]/50"
-                          />
+                    );
 
-                          <button
-                            type="submit"
-                            class="comment-submit rounded-full bg-[#6d19c9] px-5 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#7d27dc]"
-                          >
-                            Post
-                          </button>
-
-                        </form>
-
-                        <p
-                          class="comment-message mt-2 hidden text-xs text-red-300"
-                        ></p>
-
-                      </div>
-
-                    </article>
-
-                  );
-
-                })}
+                  }
+                )}
 
               </div>
 
@@ -1003,7 +1208,11 @@ if (!postsError && posts && posts.length > 0) {
 
           </div>
 
-          <!-- Sidebar -->
+
+          <!-- ================================================= -->
+          <!-- SIDEBAR -->
+          <!-- ================================================= -->
+
           <aside
             class="gold-border luxury-panel rounded-2xl p-6"
           >
@@ -1014,15 +1223,18 @@ if (!postsError && posts && posts.length > 0) {
               Member Area
             </p>
 
+
             <h2
               class="mt-3 text-2xl text-[#ffe8a6]"
             >
               Your Space
             </h2>
 
+
             <div
               class="gold-line my-5"
             ></div>
+
 
             <div
               class="space-y-4 text-sm text-white/60"
@@ -1045,6 +1257,7 @@ if (!postsError && posts && posts.length > 0) {
 
               </a>
 
+
               <a
                 href="/discover"
                 class="block rounded-xl border border-white/10 bg-black/20 p-4 transition hover:border-[#d9ad55]/30"
@@ -1057,13 +1270,16 @@ if (!postsError && posts && posts.length > 0) {
                 </p>
 
                 <p class="mt-1">
-                  Discover people and creators to connect with.
+                  Discover people and creators
+                  to connect with.
                 </p>
 
               </a>
 
-              <div
-                class="rounded-xl border border-white/10 bg-black/20 p-4"
+
+              <a
+                href="/notifications"
+                class="block rounded-xl border border-white/10 bg-black/20 p-4 transition hover:border-[#d9ad55]/30"
               >
 
                 <p
@@ -1076,7 +1292,7 @@ if (!postsError && posts && posts.length > 0) {
                   Stay connected to what matters.
                 </p>
 
-              </div>
+              </a>
 
             </div>
 
@@ -1086,7 +1302,11 @@ if (!postsError && posts && posts.length > 0) {
 
       </section>
 
-      <!-- Footer -->
+
+      <!-- ================================================= -->
+      <!-- FOOTER -->
+      <!-- ================================================= -->
+
       <footer
         class="border-t border-[#d9ad55]/15 px-5 py-8 sm:px-8"
       >
@@ -1100,517 +1320,631 @@ if (!postsError && posts && posts.length > 0) {
             Build Community.
           </p>
 
-          <a
-            href="/"
-            class="text-[#d9ad55] hover:text-[#ffe8a6]"
+
+          <div
+            class="flex gap-5"
           >
-            Return Home
-          </a>
+
+            <a
+              href="/terms"
+              class="hover:text-[#ffe8a6]"
+            >
+              Terms
+            </a>
+
+            <a
+              href="/privacy"
+              class="hover:text-[#ffe8a6]"
+            >
+              Privacy
+            </a>
+
+            <a
+              href="/"
+              class="text-[#d9ad55] hover:text-[#ffe8a6]"
+            >
+              Home
+            </a>
+
+          </div>
 
         </div>
 
       </footer>
 
     </main>
-  </body>
-</html>
 
-<script>
-  import { actions } from "astro:actions";
 
-  /* --------------------------------
-     SIGN OUT
-  --------------------------------- */
+    <!-- ================================================= -->
+    <!-- CLIENT INTERACTIONS -->
+    <!-- ================================================= -->
 
-  const signOutButton =
-    document.getElementById(
-      "signout-btn"
-    ) as HTMLButtonElement | null;
+    <script>
 
-  signOutButton?.addEventListener(
-    "click",
-    async () => {
+      import { actions } from "astro:actions";
 
-      signOutButton.disabled = true;
-      signOutButton.textContent =
-        "Signing Out...";
 
-      const {
-        data,
-        error,
-      } = await actions.signOut();
+      /* --------------------------------
+         SIGN OUT
+      --------------------------------- */
 
-      if (
-        error ||
-        !data?.success
-      ) {
+      const signOutButton =
+        document.getElementById(
+          "signout-btn"
+        ) as HTMLButtonElement | null;
 
-        signOutButton.disabled =
-          false;
 
-        signOutButton.textContent =
-          "Sign Out";
-
-        alert(
-          "We couldn't sign you out. Please try again."
-        );
-
-        return;
-      }
-
-      window.location.href = "/";
-    }
-  );
-
-  /* --------------------------------
-     LIKES
-  --------------------------------- */
-
-  const likeButtons =
-    document.querySelectorAll<HTMLButtonElement>(
-      ".like-btn"
-    );
-
-  likeButtons.forEach(
-    (button) => {
-
-      button.addEventListener(
+      signOutButton?.addEventListener(
         "click",
         async () => {
 
-          const postId =
-            button.dataset.postId;
-
-          if (!postId) {
-            return;
-          }
-
-          if (button.disabled) {
-            return;
-          }
-
-          button.disabled = true;
-
-          const {
-            data,
-            error,
-          } = await actions.toggleLike({
-            postId,
-          });
-
-          if (
-            error ||
-            !data?.success
-          ) {
-
-            button.disabled = false;
-
-            alert(
-              data?.message ||
-                "We couldn't update your like. Please try again."
-            );
-
-            return;
-          }
-
-          const liked =
-            data.liked;
-
-          button.setAttribute(
-            "aria-pressed",
-            liked
-              ? "true"
-              : "false"
-          );
-
-          const icon =
-            button.querySelector(
-              ".like-icon"
-            );
-
-          const label =
-            button.querySelector(
-              ".like-label"
-            );
-
-          const count =
-            button.querySelector(
-              ".like-count"
-            );
-
-          if (icon) {
-            icon.textContent =
-              liked
-                ? "♥"
-                : "♡";
-          }
-
-          if (label) {
-            label.textContent =
-              liked
-                ? "Liked"
-                : "Like";
-          }
-
-          if (count) {
-
-            const currentCount =
-              Number(
-                count.textContent ||
-                  "0"
-              );
-
-            const newCount =
-              liked
-                ? currentCount + 1
-                : Math.max(
-                    0,
-                    currentCount - 1
-                  );
-
-            count.textContent =
-              String(newCount);
-          }
-
-          button.classList.toggle(
-            "bg-[#6d19c9]/25",
-            liked
-          );
-
-          button.classList.toggle(
-            "text-[#ffe8a6]",
-            liked
-          );
-
-          button.classList.toggle(
-            "text-white/40",
-            !liked
-          );
-
-          button.classList.toggle(
-            "hover:bg-[#6d19c9]/15",
-            !liked
-          );
-
-          button.classList.toggle(
-            "hover:text-[#ffe8a6]",
-            !liked
-          );
-
-          button.disabled = false;
-        }
-      );
-    }
-  );
-
-  /* --------------------------------
-     COMMENT TOGGLE
-  --------------------------------- */
-
-  const commentButtons =
-    document.querySelectorAll<HTMLButtonElement>(
-      ".comment-toggle"
-    );
-
-  commentButtons.forEach(
-    (button) => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          const postId =
-            button.dataset.postId;
-
-          if (!postId) {
-            return;
-          }
-
-          const commentArea =
-            document.querySelector<HTMLElement>(
-              `.comment-area[data-post-id="${postId}"]`
-            );
-
-          if (!commentArea) {
-            return;
-          }
-
-          commentArea.classList.toggle(
-            "hidden"
-          );
-
-          if (
-            !commentArea.classList.contains(
-              "hidden"
-            )
-          ) {
-
-            const input =
-              commentArea.querySelector<HTMLInputElement>(
-                'input[name="content"]'
-              );
-
-            input?.focus();
-          }
-        }
-      );
-    }
-  );
-
-  /* --------------------------------
-     CREATE COMMENTS
-  --------------------------------- */
-
-  const commentForms =
-    document.querySelectorAll<HTMLFormElement>(
-      ".comment-form"
-    );
-
-  commentForms.forEach(
-    (form) => {
-
-      form.addEventListener(
-        "submit",
-        async (event) => {
-
-          event.preventDefault();
-
-          const postId =
-            form.dataset.postId;
-
-          const input =
-            form.querySelector<HTMLInputElement>(
-              'input[name="content"]'
-            );
-
-          const submitButton =
-            form.querySelector<HTMLButtonElement>(
-              ".comment-submit"
-            );
-
-          const message =
-            form.parentElement?.querySelector<HTMLElement>(
-              ".comment-message"
-            );
-
-          if (
-            !postId ||
-            !input ||
-            !submitButton
-          ) {
-            return;
-          }
-
-          const content =
-            input.value.trim();
-
-          if (!content) {
-            return;
-          }
-
-          submitButton.disabled =
+          signOutButton.disabled =
             true;
 
-          submitButton.textContent =
-            "Posting...";
+          signOutButton.textContent =
+            "Signing Out...";
 
-          if (message) {
-            message.classList.add(
-              "hidden"
-            );
-          }
 
           const {
             data,
             error,
-          } = await actions.createComment({
-            postId,
-            content,
-          });
+          } =
+            await actions.signOut();
+
 
           if (
             error ||
             !data?.success
           ) {
 
-            submitButton.disabled =
+            signOutButton.disabled =
               false;
 
-            submitButton.textContent =
-              "Post";
+            signOutButton.textContent =
+              "Sign Out";
 
-            if (message) {
-
-              message.textContent =
-                data?.message ||
-                "We couldn't post your comment. Please try again.";
-
-              message.classList.remove(
-                "hidden"
-              );
-            }
+            alert(
+              "We couldn't sign you out. Please try again."
+            );
 
             return;
           }
 
-          window.location.reload();
+
+          window.location.href =
+            "/";
+
         }
       );
-    }
-  );
 
-  /* --------------------------------
-     SHARE POSTS
-  --------------------------------- */
 
-  const shareButtons =
-    document.querySelectorAll<HTMLButtonElement>(
-      ".share-btn"
-    );
+      /* --------------------------------
+         LIKES
+      --------------------------------- */
 
-  shareButtons.forEach(
-    (button) => {
+      const likeButtons =
+        document.querySelectorAll(
+          ".like-btn"
+        );
 
-      button.addEventListener(
-        "click",
-        async () => {
 
-          const postId =
-            button.dataset.postId;
+      likeButtons.forEach(
+        (button) => {
 
-          if (!postId) {
-            return;
-          }
+          button.addEventListener(
+            "click",
+            async () => {
 
-          if (button.disabled) {
-            return;
-          }
+              const likeButton =
+                button as HTMLButtonElement;
 
-          const shareUrl =
-            `${window.location.origin}/dashboard#post-${postId}`;
+              const postId =
+                likeButton.dataset.postId;
 
-          const label =
-            button.querySelector(
-              ".share-label"
-            );
+              if (!postId) {
+                return;
+              }
 
-          const icon =
-            button.querySelector(
-              ".share-icon"
-            );
+              if (
+                likeButton.disabled
+              ) {
+                return;
+              }
 
-          const originalLabel =
-            "Share";
 
-          const originalIcon =
-            "↗";
+              likeButton.disabled =
+                true;
 
-          button.disabled = true;
 
-          try {
+              const {
+                data,
+                error,
+              } =
+                await actions.toggleLike({
+                  postId,
+                });
 
-            if (
-              navigator.share
-            ) {
 
-              await navigator.share({
-                title:
-                  "Melagram Post",
-                text:
-                  "Check out this post on Melagram.",
-                url:
-                  shareUrl,
-              });
+              if (
+                error ||
+                !data?.success
+              ) {
 
-            } else if (
-              navigator.clipboard
-            ) {
+                likeButton.disabled =
+                  false;
 
-              await navigator.clipboard.writeText(
-                shareUrl
-              );
-
-            } else {
-
-              const textarea =
-                document.createElement(
-                  "textarea"
+                alert(
+                  data?.message ||
+                    "We couldn't update your like. Please try again."
                 );
 
-              textarea.value =
-                shareUrl;
+                return;
+              }
 
-              textarea.style.position =
-                "fixed";
 
-              textarea.style.opacity =
-                "0";
+              const liked =
+                data.liked;
 
-              document.body.appendChild(
-                textarea
+
+              likeButton.setAttribute(
+                "aria-pressed",
+                liked
+                  ? "true"
+                  : "false"
               );
 
-              textarea.select();
 
-              document.execCommand(
-                "copy"
+              const icon =
+                likeButton.querySelector(
+                  ".like-icon"
+                );
+
+              const label =
+                likeButton.querySelector(
+                  ".like-label"
+                );
+
+              const count =
+                likeButton.querySelector(
+                  ".like-count"
+                );
+
+
+              if (icon) {
+                icon.textContent =
+                  liked
+                    ? "♥"
+                    : "♡";
+              }
+
+
+              if (label) {
+                label.textContent =
+                  liked
+                    ? "Liked"
+                    : "Like";
+              }
+
+
+              if (count) {
+
+                const currentCount =
+                  Number(
+                    count.textContent ||
+                      "0"
+                  );
+
+                count.textContent =
+                  String(
+                    liked
+                      ? currentCount + 1
+                      : Math.max(
+                          0,
+                          currentCount - 1
+                        )
+                  );
+
+              }
+
+
+              likeButton.classList.toggle(
+                "bg-[#6d19c9]/25",
+                liked
               );
 
-              textarea.remove();
+              likeButton.classList.toggle(
+                "text-[#ffe8a6]",
+                liked
+              );
+
+              likeButton.classList.toggle(
+                "text-white/40",
+                !liked
+              );
+
+              likeButton.classList.toggle(
+                "hover:bg-[#6d19c9]/15",
+                !liked
+              );
+
+              likeButton.classList.toggle(
+                "hover:text-[#ffe8a6]",
+                !liked
+              );
+
+
+              likeButton.disabled =
+                false;
+
             }
+          );
 
-            if (label) {
-              label.textContent =
-                "Copied!";
+        }
+      );
+
+
+      /* --------------------------------
+         COMMENT TOGGLE
+      --------------------------------- */
+
+      const commentButtons =
+        document.querySelectorAll(
+          ".comment-toggle"
+        );
+
+
+      commentButtons.forEach(
+        (button) => {
+
+          button.addEventListener(
+            "click",
+            () => {
+
+              const postId =
+                button.getAttribute(
+                  "data-post-id"
+                );
+
+              if (!postId) {
+                return;
+              }
+
+
+              const commentArea =
+                document.querySelector(
+                  `.comment-area[data-post-id="${postId}"]`
+                );
+
+
+              if (!commentArea) {
+                return;
+              }
+
+
+              commentArea.classList.toggle(
+                "hidden"
+              );
+
+
+              if (
+                !commentArea.classList.contains(
+                  "hidden"
+                )
+              ) {
+
+                const input =
+                  commentArea.querySelector(
+                    'input[name="content"]'
+                  ) as HTMLInputElement | null;
+
+                input?.focus();
+
+              }
+
             }
+          );
 
-            if (icon) {
-              icon.textContent =
-                "✓";
+        }
+      );
+
+
+      /* --------------------------------
+         CREATE COMMENTS
+      --------------------------------- */
+
+      const commentForms =
+        document.querySelectorAll(
+          ".comment-form"
+        );
+
+
+      commentForms.forEach(
+        (form) => {
+
+          form.addEventListener(
+            "submit",
+            async (event) => {
+
+              event.preventDefault();
+
+
+              const commentForm =
+                form as HTMLFormElement;
+
+
+              const postId =
+                commentForm.dataset.postId;
+
+
+              const input =
+                commentForm.querySelector(
+                  'input[name="content"]'
+                ) as HTMLInputElement | null;
+
+
+              const submitButton =
+                commentForm.querySelector(
+                  ".comment-submit"
+                ) as HTMLButtonElement | null;
+
+
+              const message =
+                commentForm.parentElement?.querySelector(
+                  ".comment-message"
+                ) as HTMLElement | null;
+
+
+              if (
+                !postId ||
+                !input ||
+                !submitButton
+              ) {
+                return;
+              }
+
+
+              const content =
+                input.value.trim();
+
+
+              if (!content) {
+                return;
+              }
+
+
+              submitButton.disabled =
+                true;
+
+              submitButton.textContent =
+                "Posting...";
+
+
+              if (message) {
+                message.classList.add(
+                  "hidden"
+                );
+              }
+
+
+              const {
+                data,
+                error,
+              } =
+                await actions.createComment({
+                  postId,
+                  content,
+                });
+
+
+              if (
+                error ||
+                !data?.success
+              ) {
+
+                submitButton.disabled =
+                  false;
+
+                submitButton.textContent =
+                  "Post";
+
+
+                if (message) {
+
+                  message.textContent =
+                    data?.message ||
+                    "We couldn't post your comment. Please try again.";
+
+                  message.classList.remove(
+                    "hidden"
+                  );
+
+                }
+
+                return;
+              }
+
+
+              window.location.reload();
+
             }
+          );
 
-            button.classList.add(
-              "bg-[#6d19c9]/25",
-              "text-[#ffe8a6]"
-            );
+        }
+      );
 
-            window.setTimeout(
-              () => {
+
+      /* --------------------------------
+         SHARE POSTS
+      --------------------------------- */
+
+      const shareButtons =
+        document.querySelectorAll(
+          ".share-btn"
+        );
+
+
+      shareButtons.forEach(
+        (button) => {
+
+          button.addEventListener(
+            "click",
+            async () => {
+
+              const shareButton =
+                button as HTMLButtonElement;
+
+              const postId =
+                shareButton.dataset.postId;
+
+
+              if (!postId) {
+                return;
+              }
+
+
+              if (
+                shareButton.disabled
+              ) {
+                return;
+              }
+
+
+              const shareUrl =
+                `${window.location.origin}/dashboard#post-${postId}`;
+
+
+              const label =
+                shareButton.querySelector(
+                  ".share-label"
+                );
+
+              const icon =
+                shareButton.querySelector(
+                  ".share-icon"
+                );
+
+
+              shareButton.disabled =
+                true;
+
+
+              try {
+
+                if (
+                  navigator.share
+                ) {
+
+                  await navigator.share({
+                    title:
+                      "Melagram Post",
+                    text:
+                      "Check out this post on Melagram.",
+                    url:
+                      shareUrl,
+                  });
+
+                } else if (
+                  navigator.clipboard
+                ) {
+
+                  await navigator.clipboard.writeText(
+                    shareUrl
+                  );
+
+                } else {
+
+                  const textarea =
+                    document.createElement(
+                      "textarea"
+                    );
+
+                  textarea.value =
+                    shareUrl;
+
+                  textarea.style.position =
+                    "fixed";
+
+                  textarea.style.opacity =
+                    "0";
+
+                  document.body.appendChild(
+                    textarea
+                  );
+
+                  textarea.select();
+
+                  document.execCommand(
+                    "copy"
+                  );
+
+                  textarea.remove();
+
+                }
+
 
                 if (label) {
                   label.textContent =
-                    originalLabel;
+                    "Copied!";
                 }
+
 
                 if (icon) {
                   icon.textContent =
-                    originalIcon;
+                    "✓";
                 }
 
-                button.classList.remove(
+
+                shareButton.classList.add(
                   "bg-[#6d19c9]/25",
                   "text-[#ffe8a6]"
                 );
 
-                button.disabled =
+
+                window.setTimeout(
+                  () => {
+
+                    if (label) {
+                      label.textContent =
+                        "Share";
+                    }
+
+                    if (icon) {
+                      icon.textContent =
+                        "↗";
+                    }
+
+                    shareButton.classList.remove(
+                      "bg-[#6d19c9]/25",
+                      "text-[#ffe8a6]"
+                    );
+
+                    shareButton.disabled =
+                      false;
+
+                  },
+                  1800
+                );
+
+              } catch (error) {
+
+                console.error(
+                  "Share error:",
+                  error
+                );
+
+                shareButton.disabled =
                   false;
 
-              },
-              1800
-            );
+              }
 
-          } catch (error) {
+            }
+          );
 
-            console.error(
-              "Share error:",
-              error
-            );
-
-            button.disabled =
-              false;
-          }
         }
       );
-    }
-  );
-</script>
+
+    </script>
+
+  </body>
+
+</html>

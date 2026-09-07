@@ -142,37 +142,87 @@ import "../../src/styles/global.css";
           </div>
 
           <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <div class="feature-card gold-border rounded-2xl bg-black/30 p-6">
+
+            <!-- CONNECT -->
+            <a
+              href="/discover"
+              class="feature-card gold-border block rounded-2xl bg-black/30 p-6 transition hover:-translate-y-1 hover:bg-[#6d19c9]/10 hover:shadow-[0_0_25px_rgba(109,25,201,.25)]"
+            >
               <div class="mb-5 text-3xl">♛</div>
-              <h3 class="text-xl text-white">Connect</h3>
+
+              <h3 class="text-xl text-white">
+                Connect
+              </h3>
+
               <p class="mt-3 text-sm leading-7 text-white/55">
                 Find people with shared interests, passions, and perspectives.
               </p>
-            </div>
 
-            <div class="feature-card gold-border rounded-2xl bg-black/30 p-6">
+              <div class="mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-[#d9ad55]">
+                Find People →
+              </div>
+            </a>
+
+            <!-- COMMUNITIES -->
+            <a
+              href="/communities"
+              class="feature-card gold-border block rounded-2xl bg-black/30 p-6 transition hover:-translate-y-1 hover:bg-[#6d19c9]/10 hover:shadow-[0_0_25px_rgba(109,25,201,.25)]"
+            >
               <div class="mb-5 text-3xl">♜</div>
-              <h3 class="text-xl text-white">Communities</h3>
+
+              <h3 class="text-xl text-white">
+                Communities
+              </h3>
+
               <p class="mt-3 text-sm leading-7 text-white/55">
                 Discover spaces where conversations and relationships can grow.
               </p>
-            </div>
 
-            <div class="feature-card gold-border rounded-2xl bg-black/30 p-6">
+              <div class="mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-[#d9ad55]">
+                Explore Communities →
+              </div>
+            </a>
+
+            <!-- CREATE -->
+            <a
+              href="/create-post"
+              class="feature-card gold-border block rounded-2xl bg-black/30 p-6 transition hover:-translate-y-1 hover:bg-[#6d19c9]/10 hover:shadow-[0_0_25px_rgba(109,25,201,.25)]"
+            >
               <div class="mb-5 text-3xl">✦</div>
-              <h3 class="text-xl text-white">Create</h3>
+
+              <h3 class="text-xl text-white">
+                Create
+              </h3>
+
               <p class="mt-3 text-sm leading-7 text-white/55">
                 Share ideas, creativity, stories, conversations, and more.
               </p>
-            </div>
 
-            <div class="feature-card gold-border rounded-2xl bg-black/30 p-6">
+              <div class="mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-[#d9ad55]">
+                Create a Post →
+              </div>
+            </a>
+
+            <!-- DISCOVER -->
+            <a
+              href="/discover"
+              class="feature-card gold-border block rounded-2xl bg-black/30 p-6 transition hover:-translate-y-1 hover:bg-[#6d19c9]/10 hover:shadow-[0_0_25px_rgba(109,25,201,.25)]"
+            >
               <div class="mb-5 text-3xl">♕</div>
-              <h3 class="text-xl text-white">Discover</h3>
+
+              <h3 class="text-xl text-white">
+                Discover
+              </h3>
+
               <p class="mt-3 text-sm leading-7 text-white/55">
                 Explore people, creators, communities, and new possibilities.
               </p>
-            </div>
+
+              <div class="mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-[#d9ad55]">
+                Start Exploring →
+              </div>
+            </a>
+
           </div>
         </div>
       </section>
@@ -215,6 +265,7 @@ import "../../src/styles/global.css";
           <div class="grid gap-6 md:grid-cols-2">
             <div class="luxury-panel gold-border rounded-2xl p-8">
               <h3 class="text-2xl text-white">People First</h3>
+
               <p class="mt-4 leading-8 text-white/60">
                 Melagram is being designed around the people who make a
                 community worth joining.
@@ -223,6 +274,7 @@ import "../../src/styles/global.css";
 
             <div class="luxury-panel gold-border rounded-2xl p-8">
               <h3 class="text-2xl text-white">Community Driven</h3>
+
               <p class="mt-4 leading-8 text-white/60">
                 Communities give people somewhere to gather, talk, share, and
                 build something together.
@@ -231,6 +283,7 @@ import "../../src/styles/global.css";
 
             <div class="luxury-panel gold-border rounded-2xl p-8">
               <h3 class="text-2xl text-white">Creator Friendly</h3>
+
               <p class="mt-4 leading-8 text-white/60">
                 Creators deserve spaces where their work can be discovered
                 and appreciated.
@@ -239,6 +292,7 @@ import "../../src/styles/global.css";
 
             <div class="luxury-panel gold-border rounded-2xl p-8">
               <h3 class="text-2xl text-white">Built to Grow</h3>
+
               <p class="mt-4 leading-8 text-white/60">
                 Melagram is being built one piece at a time, with room for
                 new ideas, new communities, and new possibilities.
@@ -291,17 +345,39 @@ import "../../src/styles/global.css";
         class="mx-auto flex max-w-7xl flex-col gap-5 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left"
       >
         <div>
-          <p class="gold-text font-semibold tracking-[0.2em]">MELAGRAM</p>
+          <p class="gold-text font-semibold tracking-[0.2em]">
+            MELAGRAM
+          </p>
+
           <p class="mt-2 text-xs text-white/40">
             Connect. Network. Create. Build Community.
           </p>
         </div>
 
-        <div class="flex justify-center gap-6 text-xs text-white/45 sm:justify-end">
-          <a href="/about" class="hover:text-white">About</a>
-          <a href="/discover" class="hover:text-white">Discover</a>
-          <a href="/communities" class="hover:text-white">Communities</a>
-          <a href="/creators" class="hover:text-white">Creators</a>
+        <div class="flex flex-wrap justify-center gap-6 text-xs text-white/45 sm:justify-end">
+          <a href="/about" class="hover:text-white">
+            About
+          </a>
+
+          <a href="/discover" class="hover:text-white">
+            Discover
+          </a>
+
+          <a href="/communities" class="hover:text-white">
+            Communities
+          </a>
+
+          <a href="/creators" class="hover:text-white">
+            Creators
+          </a>
+
+          <a href="/terms" class="hover:text-white">
+            Terms
+          </a>
+
+          <a href="/privacy" class="hover:text-white">
+            Privacy
+          </a>
         </div>
       </div>
     </footer>
