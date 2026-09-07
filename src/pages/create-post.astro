@@ -1,0 +1,277 @@
+---
+import "../styles/global.css";
+import { actions } from "astro:actions";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+  env: Astro.locals.runtime.env,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const displayName =
+  user.user_metadata?.full_name ||
+  user.user_metadata?.username ||
+  user.email?.split("@")[0] ||
+  "Member";
+
+const username =
+  user.user_metadata?.username ||
+  user.email?.split("@")[0] ||
+  "member";
+
+const createPostResult = Astro.getActionResult(actions.createPost);
+
+if (createPostResult?.data?.success) {
+  return Astro.redirect("/dashboard");
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Create Post | Melagram</title>
+    <meta
+      name="description"
+      content="Create and share a post with the Melagram community."
+    />
+  </head>
+
+  <body>
+    <main class="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-4xl">
+
+        <!-- Header -->
+        <div class="mb-8 text-center">
+          <div
+            class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[#d9ad55]/70 bg-[#16091f] shadow-[0_0_35px_rgba(109,25,201,.28)]"
+          >
+            <span class="text-2xl text-[#ffe8a6]">✦</span>
+          </div>
+
+          <p
+            class="mb-2 text-xs font-semibold uppercase tracking-[0.35em] text-[#d9ad55]"
+          >
+            Melagram
+          </p>
+
+          <h1
+            class="display text-3xl font-semibold text-[#fff7e5] sm:text-4xl"
+          >
+            Create a Post
+          </h1>
+
+          <p class="mt-3 text-sm text-[#cdbfd8] sm:text-base">
+            Share something with the Melagram community.
+          </p>
+        </div>
+
+        <!-- Main Card -->
+        <section
+          class="luxury-panel gold-border overflow-hidden rounded-2xl"
+        >
+          <!-- Member Header -->
+          <div
+            class="flex items-center gap-4 border-b border-[#d9ad55]/30 px-5 py-5 sm:px-7"
+          >
+            <div
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/70 bg-[#0b050f] text-lg font-semibold text-[#ffe8a6]"
+            >
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+
+            <div class="min-w-0">
+              <h2
+                class="truncate text-base font-semibold text-[#fff7e5]"
+              >
+                {displayName}
+              </h2>
+
+              <p class="truncate text-sm text-[#a894b7]">
+                @{username}
+              </p>
+            </div>
+          </div>
+
+          <!-- Form -->
+          <form
+            method="POST"
+            action={actions.createPost}
+            class="p-5 sm:p-7"
+            id="create-post-form"
+          >
+            <!-- Error Message -->
+            {
+              createPostResult?.error && (
+                <div
+                  class="mb-5 rounded-xl border border-red-400/40 bg-red-950/30 px-4 py-3 text-sm text-red-200"
+                >
+                  {createPostResult.error.message ||
+                    "We couldn't publish your post. Please try again."}
+                </div>
+              )
+            }
+
+            {
+              createPostResult?.data &&
+              !createPostResult.data.success && (
+                <div
+                  class="mb-5 rounded-xl border border-red-400/40 bg-red-950/30 px-4 py-3 text-sm text-red-200"
+                >
+                  {createPostResult.data.message}
+                </div>
+              )
+            }
+
+            <!-- Post Label -->
+            <div class="mb-3 flex items-center justify-between">
+              <label
+                for="content"
+                class="text-xs font-semibold uppercase tracking-[0.2em] text-[#d9ad55]"
+              >
+                What's on your mind?
+              </label>
+
+              <span
+                id="character-count"
+                class="text-xs text-[#a894b7]"
+              >
+                0 / 2000
+              </span>
+            </div>
+
+            <!-- Textarea -->
+            <textarea
+              id="content"
+              name="content"
+              rows="9"
+              maxlength="2000"
+              required
+              placeholder="Write something..."
+              class="block w-full resize-y rounded-xl border border-[#d9ad55]/70 bg-black px-4 py-4 text-base leading-7 text-[#b84cff] outline-none transition placeholder:text-[#7f4c9b] focus:border-[#ffe8a6] focus:ring-1 focus:ring-[#d9ad55]/60"
+            ></textarea>
+
+            <!-- Media Placeholder -->
+            <div
+              class="mt-6 rounded-xl border border-dashed border-[#d9ad55]/40 bg-black/40 p-5"
+            >
+              <div class="flex items-start gap-4">
+                <div
+                  class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#d9ad55]/40 bg-[#16091f] text-[#d9ad55]"
+                >
+                  <span class="text-lg">＋</span>
+                </div>
+
+                <div>
+                  <h3
+                    class="text-sm font-semibold text-[#fff7e5]"
+                  >
+                    Add Photos & Media
+                  </h3>
+
+                  <p class="mt-1 text-sm leading-6 text-[#9e8ba9]">
+                    Media uploads are coming next. For now, share your
+                    thoughts with text.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div
+              class="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+            >
+              <a
+                href="/dashboard"
+                class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9ad55]/50 bg-black/40 px-6 text-sm font-semibold text-[#fff7e5] transition hover:border-[#ffe8a6] hover:bg-[#16091f]"
+              >
+                Cancel
+              </a>
+
+              <button
+                type="submit"
+                id="publish-btn"
+                class="cta inline-flex min-h-12 items-center justify-center rounded-xl px-7 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Publish Post
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Footer -->
+        <div class="mt-6 text-center">
+          <a
+            href="/dashboard"
+            class="nav-link text-sm text-[#a894b7] hover:text-[#ffe8a6]"
+          >
+            ← Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const form = document.getElementById(
+        "create-post-form"
+      ) as HTMLFormElement | null;
+
+      const textarea = document.getElementById(
+        "content"
+      ) as HTMLTextAreaElement | null;
+
+      const characterCount = document.getElementById(
+        "character-count"
+      ) as HTMLSpanElement | null;
+
+      const publishButton = document.getElementById(
+        "publish-btn"
+      ) as HTMLButtonElement | null;
+
+      const updateCharacterCount = () => {
+        if (!textarea || !characterCount) return;
+
+        const length = textarea.value.length;
+
+        characterCount.textContent = `${length} / 2000`;
+
+        if (length >= 1900) {
+          characterCount.classList.add("text-[#ffe8a6]");
+        } else {
+          characterCount.classList.remove("text-[#ffe8a6]");
+        }
+      };
+
+      textarea?.addEventListener(
+        "input",
+        updateCharacterCount
+      );
+
+      form?.addEventListener("submit", () => {
+        if (!publishButton || !textarea) return;
+
+        if (!textarea.value.trim()) {
+          return;
+        }
+
+        publishButton.disabled = true;
+        publishButton.textContent = "Publishing...";
+      });
+
+      updateCharacterCount();
+    </script>
+  </body>
+</html>

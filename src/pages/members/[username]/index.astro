@@ -1,0 +1,1130 @@
+---
+import "../../../styles/global.css";
+import { actions } from "astro:actions";
+import { createClient } from "../../../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+  env: Astro.locals.runtime.env,
+});
+
+const requestedUsername = Astro.params.username;
+
+let profile = null;
+
+if (requestedUsername) {
+  const { data } = await supabase
+    .from("profiles")
+    .select(
+      "id, username, full_name, bio, avatar_url, created_at"
+    )
+    .eq("username", requestedUsername)
+    .maybeSingle();
+
+  profile = data;
+}
+
+/* --------------------------------
+   CURRENT USER
+--------------------------------- */
+
+const {
+  data: { user: currentUser },
+} = await supabase.auth.getUser();
+
+/* --------------------------------
+   PROFILE INFORMATION
+--------------------------------- */
+
+const displayName =
+  profile?.full_name ||
+  profile?.username ||
+  "Melagram Member";
+
+const username =
+  profile?.username ||
+  requestedUsername ||
+  "member";
+
+const bio =
+  profile?.bio ||
+  "Welcome to my Melagram profile. Connect, network, create, and build community.";
+
+const avatarUrl =
+  profile?.avatar_url || "";
+
+const initials = displayName
+  .split(" ")
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((name) => name[0])
+  .join("")
+  .toUpperCase();
+
+const memberSince = profile?.created_at
+  ? new Date(profile.created_at).toLocaleDateString(
+      "en-US",
+      {
+        month: "long",
+        year: "numeric",
+      }
+    )
+  : "2026";
+
+/* --------------------------------
+   FOLLOW DATA
+--------------------------------- */
+
+let followerCount = 0;
+let followingCount = 0;
+let isFollowing = false;
+
+if (profile?.id) {
+  const {
+    count: followers,
+  } = await supabase
+    .from("follows")
+    .select("id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("following_id", profile.id);
+
+  followerCount = followers ?? 0;
+
+  const {
+    count: following,
+  } = await supabase
+    .from("follows")
+    .select("id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("follower_id", profile.id);
+
+  followingCount = following ?? 0;
+
+  if (
+    currentUser &&
+    currentUser.id !== profile.id
+  ) {
+    const {
+      data: existingFollow,
+    } = await supabase
+      .from("follows")
+      .select("id")
+      .eq(
+        "follower_id",
+        currentUser.id
+      )
+      .eq(
+        "following_id",
+        profile.id
+      )
+      .maybeSingle();
+
+    isFollowing =
+      !!existingFollow;
+  }
+}
+
+const isOwnProfile =
+  !!currentUser &&
+  !!profile?.id &&
+  currentUser.id === profile.id;
+---
+
+<html lang="en">
+  <head>
+
+    <meta charset="UTF-8" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+
+    <title>
+      {displayName} | Melagram
+    </title>
+
+    <meta
+      name="description"
+      content={`View ${displayName}'s profile on Melagram.`}
+    />
+
+  </head>
+
+
+  <body
+    class="min-h-screen bg-[#050208] text-[#fff7e5]"
+  >
+
+    <!-- ===================================================== -->
+    <!-- NAVIGATION -->
+    <!-- ===================================================== -->
+
+    <header
+      class="border-b border-[#d9ad55]/30 bg-[#050208]/95"
+    >
+
+      <div
+        class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4"
+      >
+
+        <a
+          href="/"
+          class="font-serif text-xl font-semibold tracking-[0.18em] text-[#ffe8a6]"
+        >
+          MELAGRAM
+        </a>
+
+
+        <nav
+          class="hidden items-center gap-6 md:flex"
+        >
+
+          <a
+            href="/discover"
+            class="nav-link text-sm text-[#fff7e5]/80"
+          >
+            Discover
+          </a>
+
+          <a
+            href="/communities"
+            class="nav-link text-sm text-[#fff7e5]/80"
+          >
+            Communities
+          </a>
+
+          <a
+            href="/creators"
+            class="nav-link text-sm text-[#fff7e5]/80"
+          >
+            Creators
+          </a>
+
+          <a
+            href="/about"
+            class="nav-link text-sm text-[#fff7e5]/80"
+          >
+            About
+          </a>
+
+          <a
+            href="/dashboard"
+            class="cta rounded-full px-5 py-2 text-sm font-semibold text-white"
+          >
+            Dashboard
+          </a>
+
+        </nav>
+
+
+        <a
+          href="/dashboard"
+          class="cta rounded-full px-4 py-2 text-sm font-semibold text-white md:hidden"
+        >
+          Dashboard
+        </a>
+
+      </div>
+
+    </header>
+
+
+    <!-- ===================================================== -->
+    <!-- MAIN PROFILE -->
+    <!-- ===================================================== -->
+
+    <main
+      class="mx-auto max-w-7xl px-4 py-8 md:px-6 lg:py-12"
+    >
+
+      <!-- =================================================== -->
+      <!-- PROFILE HERO -->
+      <!-- =================================================== -->
+
+      <section
+        class="overflow-hidden rounded-[2rem] border border-[#d9ad55]/60 bg-[#07030c] shadow-[0_0_60px_rgba(109,25,201,.18)]"
+      >
+
+        <div
+          class="grid min-w-0"
+          style="grid-template-columns: 31% 69%;"
+        >
+
+          <!-- =============================================== -->
+          <!-- LEFT SIDE -->
+          <!-- =============================================== -->
+
+          <aside
+            class="min-w-0 border-r border-[#d9ad55]/70 bg-[#180522]"
+          >
+
+            <div
+              class="flex min-h-[470px] items-center justify-center p-6 md:p-8"
+            >
+
+              <div
+                class="relative aspect-square w-full max-w-[330px] overflow-hidden rounded-[2rem] border-2 border-[#d9ad55]/80 bg-[#07030c] shadow-[0_0_45px_rgba(109,25,201,.35)]"
+              >
+
+                <div
+                  class="pointer-events-none absolute inset-3 rounded-[1.5rem] border border-[#ffe8a6]/20"
+                ></div>
+
+                <div
+                  class="pointer-events-none absolute inset-5 rounded-[1.25rem] border border-[#d9ad55]/30"
+                ></div>
+
+                {
+                  avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={`${displayName} profile`}
+                      class="relative z-10 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      class="relative z-10 flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(109,25,201,.55),rgba(7,3,12,.98)_70%)]"
+                    >
+                      <span
+                        class="font-serif text-7xl font-semibold tracking-widest text-[#ffe8a6]"
+                      >
+                        {initials}
+                      </span>
+                    </div>
+                  )
+                }
+
+              </div>
+
+            </div>
+
+
+            <div
+              class="gold-line mx-6"
+            ></div>
+
+
+            <!-- PROFILE ACTIONS -->
+
+            <div
+              class="p-6 md:p-8"
+            >
+
+              <div
+                class="grid gap-3"
+              >
+
+                {isOwnProfile ? (
+
+                  <a
+                    href="/profile"
+                    class="flex min-h-[52px] items-center justify-center rounded-xl border border-[#d9ad55]/60 bg-[#07030c] px-5 text-center text-sm font-semibold uppercase tracking-[0.16em] text-[#ffe8a6] transition hover:border-[#ffe8a6] hover:bg-[#24102f]"
+                  >
+                    Edit Profile
+                  </a>
+
+                ) : currentUser && profile ? (
+
+                  <button
+                    type="button"
+                    id="followProfileButton"
+                    data-user-id={profile.id}
+                    data-following={
+                      isFollowing
+                        ? "true"
+                        : "false"
+                    }
+                    class:list={[
+                      "flex",
+                      "min-h-[52px]",
+                      "items-center",
+                      "justify-center",
+                      "rounded-xl",
+                      "px-5",
+                      "text-center",
+                      "text-sm",
+                      "font-semibold",
+                      "uppercase",
+                      "tracking-[0.16em]",
+                      "transition",
+                      isFollowing
+                        ? "border border-[#d9ad55]/60 bg-[#24102f] text-[#ffe8a6] hover:bg-[#6d19c9]/30"
+                        : "cta text-white",
+                    ]}
+                  >
+                    {isFollowing
+                      ? "Following"
+                      : "Follow"}
+                  </button>
+
+                ) : (
+
+                  <a
+                    href="/login"
+                    class="cta flex min-h-[52px] items-center justify-center rounded-xl px-5 text-center text-sm font-semibold uppercase tracking-[0.16em] text-white"
+                  >
+                    Sign In to Follow
+                  </a>
+
+                )}
+
+
+                <button
+                  type="button"
+                  id="shareProfileButton"
+                  class="flex min-h-[52px] items-center justify-center rounded-xl border border-[#d9ad55]/40 bg-[#07030c] px-5 text-center text-sm font-semibold uppercase tracking-[0.16em] text-[#fff7e5]/90 transition hover:border-[#ffe8a6] hover:bg-[#24102f]"
+                >
+                  Share Profile
+                </button>
+
+              </div>
+
+            </div>
+
+          </aside>
+
+
+          <!-- =============================================== -->
+          <!-- RIGHT SIDE -->
+          <!-- =============================================== -->
+
+          <div
+            class="relative min-w-0 overflow-hidden bg-[#07030c]"
+          >
+
+            <div
+              class="pointer-events-none absolute inset-0"
+            >
+
+              <div
+                class="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(109,25,201,.32),transparent_55%)]"
+              ></div>
+
+              <div
+                class="absolute left-[8%] right-[8%] top-[-180px] h-[600px] rounded-t-[320px] border-2 border-[#d9ad55]/35"
+              ></div>
+
+              <div
+                class="absolute left-[13%] right-[13%] top-[-120px] h-[520px] rounded-t-[280px] border border-[#ffe8a6]/15"
+              ></div>
+
+              <div
+                class="absolute left-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-[#d9ad55]/30 to-transparent"
+              ></div>
+
+              <div
+                class="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-[#d9ad55]/30 to-transparent"
+              ></div>
+
+            </div>
+
+
+            <!-- MEMBER INFORMATION -->
+
+            <div
+              class="relative z-10 flex min-h-[620px] flex-col justify-center p-7 sm:p-10 md:p-12 lg:p-14"
+            >
+
+              <div
+                class="mb-5 flex items-center gap-3"
+              >
+
+                <div
+                  class="h-px w-10 bg-[#d9ad55]"
+                ></div>
+
+                <p
+                  class="text-xs font-semibold uppercase tracking-[0.28em] text-[#ffe8a6]"
+                >
+                  Melagram Member
+                </p>
+
+                <div
+                  class="h-px flex-1 bg-gradient-to-r from-[#d9ad55]/70 to-transparent"
+                ></div>
+
+              </div>
+
+
+              <h1
+                class="break-words text-4xl font-semibold leading-tight tracking-wide text-[#ffe8a6] sm:text-5xl lg:text-6xl"
+              >
+                {displayName}
+              </h1>
+
+
+              <p
+                class="mt-3 break-words text-base font-medium tracking-[0.12em] text-[#fff7e5]/65"
+              >
+                @{username}
+              </p>
+
+
+              <!-- FOLLOW STATS -->
+
+              <div
+                class="mt-6 flex flex-wrap gap-6"
+              >
+
+                <a
+                  href={`/members/${username}/followers`}
+                  class="group"
+                >
+                  <p
+                    id="followerCount"
+                    class="text-2xl font-semibold text-[#ffe8a6] group-hover:text-white"
+                  >
+                    {followerCount}
+                  </p>
+
+                  <p
+                    class="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#d9ad55] group-hover:text-[#ffe8a6]"
+                  >
+                    Followers
+                  </p>
+                </a>
+
+
+                <a
+                  href={`/members/${username}/following`}
+                  class="group"
+                >
+                  <p
+                    class="text-2xl font-semibold text-[#ffe8a6] group-hover:text-white"
+                  >
+                    {followingCount}
+                  </p>
+
+                  <p
+                    class="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#d9ad55] group-hover:text-[#ffe8a6]"
+                  >
+                    Following
+                  </p>
+                </a>
+
+              </div>
+
+
+              <div
+                class="gold-line my-7 max-w-2xl"
+              ></div>
+
+
+              <div
+                class="max-w-3xl"
+              >
+
+                <p
+                  class="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#d9ad55]"
+                >
+                  About
+                </p>
+
+                <p
+                  class="text-base leading-8 text-[#fff7e5]/85 md:text-lg"
+                >
+                  {bio}
+                </p>
+
+              </div>
+
+
+              <div
+                class="mt-8 grid gap-4 sm:grid-cols-2"
+              >
+
+                <div
+                  class="rounded-xl border border-[#d9ad55]/25 bg-black/20 p-5"
+                >
+
+                  <p
+                    class="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#d9ad55]"
+                  >
+                    Member Since
+                  </p>
+
+                  <p
+                    class="mt-2 text-sm text-[#fff7e5]/85"
+                  >
+                    {memberSince}
+                  </p>
+
+                </div>
+
+
+                <div
+                  class="rounded-xl border border-[#d9ad55]/25 bg-black/20 p-5"
+                >
+
+                  <p
+                    class="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#d9ad55]"
+                  >
+                    Community
+                  </p>
+
+                  <p
+                    class="mt-2 text-sm text-[#fff7e5]/85"
+                  >
+                    Melagram
+                  </p>
+
+                </div>
+
+              </div>
+
+
+              <div
+                class="mt-7"
+              >
+
+                <p
+                  class="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#d9ad55]"
+                >
+                  Interests
+                </p>
+
+                <div
+                  class="flex flex-wrap gap-2"
+                >
+
+                  <span
+                    class="rounded-full border border-[#d9ad55]/40 bg-[#180522]/70 px-4 py-2 text-xs text-[#ffe8a6]"
+                  >
+                    Creative
+                  </span>
+
+                  <span
+                    class="rounded-full border border-[#d9ad55]/40 bg-[#180522]/70 px-4 py-2 text-xs text-[#ffe8a6]"
+                  >
+                    Community
+                  </span>
+
+                  <span
+                    class="rounded-full border border-[#d9ad55]/40 bg-[#180522]/70 px-4 py-2 text-xs text-[#ffe8a6]"
+                  >
+                    Networking
+                  </span>
+
+                  <span
+                    class="rounded-full border border-[#d9ad55]/40 bg-[#180522]/70 px-4 py-2 text-xs text-[#ffe8a6]"
+                  >
+                    Melagram
+                  </span>
+
+                </div>
+
+              </div>
+
+
+              <div
+                class="mt-8 max-w-3xl"
+              >
+
+                <div
+                  class="flex gap-4"
+                >
+
+                  <div
+                    class="mt-1 h-12 w-1 shrink-0 bg-gradient-to-b from-[#ffe8a6] to-[#6d19c9]"
+                  ></div>
+
+                  <p
+                    class="font-serif text-lg italic leading-8 text-[#fff7e5]/75"
+                  >
+                    “Good people. Good energy. Good community.”
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- ================================================= -->
+        <!-- PROFILE TABS -->
+        <!-- ================================================= -->
+
+        <div
+          class="grid grid-cols-2 border-t border-[#d9ad55]/50 bg-[#0b0412] sm:grid-cols-4"
+        >
+
+          <button
+            type="button"
+            class="border-r border-[#d9ad55]/20 px-4 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#ffe8a6]"
+          >
+            Posts
+          </button>
+
+          <button
+            type="button"
+            class="border-r border-[#d9ad55]/20 px-4 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#fff7e5]/65 transition hover:text-[#ffe8a6]"
+          >
+            About
+          </button>
+
+          <button
+            type="button"
+            class="border-r border-[#d9ad55]/20 px-4 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#fff7e5]/65 transition hover:text-[#ffe8a6]"
+          >
+            Communities
+          </button>
+
+          <button
+            type="button"
+            class="px-4 py-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#fff7e5]/65 transition hover:text-[#ffe8a6]"
+          >
+            Activity
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- ===================================================== -->
+      <!-- LOWER PROFILE CONTENT -->
+      <!-- ===================================================== -->
+
+      <section
+        class="mt-8 grid gap-6 lg:grid-cols-[1.6fr_.8fr]"
+      >
+
+        <!-- POSTS -->
+
+        <div
+          class="space-y-5"
+        >
+
+          <div
+            class="gold-border luxury-panel rounded-2xl p-6"
+          >
+
+            <div
+              class="flex items-center justify-between gap-4"
+            >
+
+              <div>
+
+                <p
+                  class="text-xs uppercase tracking-[0.2em] text-[#d9ad55]"
+                >
+                  Posts
+                </p>
+
+                <h2
+                  class="mt-2 text-2xl text-[#ffe8a6]"
+                >
+                  Welcome to the profile
+                </h2>
+
+              </div>
+
+              <span
+                class="rounded-full border border-[#d9ad55]/30 px-3 py-1 text-xs text-[#fff7e5]/50"
+              >
+                Melagram
+              </span>
+
+            </div>
+
+
+            <div
+              class="gold-line my-5"
+            ></div>
+
+
+            <p
+              class="leading-7 text-[#fff7e5]/70"
+            >
+              This is where member posts, conversations,
+              creative work, updates, and community activity
+              will appear.
+            </p>
+
+          </div>
+
+
+          <div
+            class="gold-border rounded-2xl bg-[#0b0412] p-6"
+          >
+
+            <p
+              class="text-xs uppercase tracking-[0.2em] text-[#d9ad55]"
+            >
+              Community
+            </p>
+
+            <h3
+              class="mt-2 text-xl text-[#ffe8a6]"
+            >
+              Connect. Network. Create.
+            </h3>
+
+            <p
+              class="mt-3 leading-7 text-[#fff7e5]/65"
+            >
+              Melagram is built for people who want a place
+              to connect, discover communities, share ideas,
+              and build something real.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <!-- SIDEBAR -->
+
+        <aside
+          class="space-y-5"
+        >
+
+          <div
+            class="gold-border rounded-2xl bg-[#0b0412] p-6"
+          >
+
+            <p
+              class="text-xs uppercase tracking-[0.2em] text-[#d9ad55]"
+            >
+              Communities
+            </p>
+
+            <h3
+              class="mt-2 text-xl text-[#ffe8a6]"
+            >
+              Find your people
+            </h3>
+
+            <p
+              class="mt-3 text-sm leading-6 text-[#fff7e5]/60"
+            >
+              Explore Melagram communities and connect with
+              people who share your interests.
+            </p>
+
+            <a
+              href="/communities"
+              class="cta mt-5 inline-flex rounded-full px-5 py-3 text-sm font-semibold text-white"
+            >
+              Explore Communities
+            </a>
+
+          </div>
+
+
+          <div
+            class="gold-border rounded-2xl bg-[#0b0412] p-6"
+          >
+
+            <p
+              class="text-xs uppercase tracking-[0.2em] text-[#d9ad55]"
+            >
+              Discover
+            </p>
+
+            <h3
+              class="mt-2 text-xl text-[#ffe8a6]"
+            >
+              Meet more members
+            </h3>
+
+            <a
+              href="/discover"
+              class="mt-5 inline-flex text-sm font-semibold text-[#ffe8a6] hover:text-white"
+            >
+              Browse Discover →
+            </a>
+
+          </div>
+
+        </aside>
+
+      </section>
+
+    </main>
+
+
+    <!-- ===================================================== -->
+    <!-- FOOTER -->
+    <!-- ===================================================== -->
+
+    <footer
+      class="border-t border-[#d9ad55]/20 bg-[#050208]"
+    >
+
+      <div
+        class="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-8 text-center text-xs text-[#fff7e5]/45 md:flex-row md:items-center md:justify-between md:text-left"
+      >
+
+        <p>
+          © 2026 Melagram. Connect. Network. Create. Build Community.
+        </p>
+
+        <div
+          class="flex justify-center gap-5 md:justify-end"
+        >
+
+          <a
+            href="/about"
+            class="hover:text-[#ffe8a6]"
+          >
+            About
+          </a>
+
+          <a
+            href="/communities"
+            class="hover:text-[#ffe8a6]"
+          >
+            Communities
+          </a>
+
+          <a
+            href="/creators"
+            class="hover:text-[#ffe8a6]"
+          >
+            Creators
+          </a>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+
+    <!-- ===================================================== -->
+    <!-- PROFILE INTERACTIONS -->
+    <!-- ===================================================== -->
+
+    <script>
+
+      import { actions } from "astro:actions";
+
+
+      /* --------------------------------
+         FOLLOW / UNFOLLOW
+      --------------------------------- */
+
+      const followButton =
+        document.getElementById(
+          "followProfileButton"
+        ) as HTMLButtonElement | null;
+
+      followButton?.addEventListener(
+        "click",
+        async () => {
+
+          const userId =
+            followButton.dataset.userId;
+
+          if (!userId) {
+            return;
+          }
+
+          if (followButton.disabled) {
+            return;
+          }
+
+          const currentlyFollowing =
+            followButton.dataset.following ===
+            "true";
+
+          followButton.disabled =
+            true;
+
+          followButton.textContent =
+            currentlyFollowing
+              ? "Unfollowing..."
+              : "Following...";
+
+          const {
+            data,
+            error,
+          } =
+            await actions.toggleFollow({
+              userId,
+            });
+
+          if (
+            error ||
+            !data?.success
+          ) {
+
+            followButton.disabled =
+              false;
+
+            followButton.textContent =
+              currentlyFollowing
+                ? "Following"
+                : "Follow";
+
+            alert(
+              data?.message ||
+                "We couldn't update your follow."
+            );
+
+            return;
+          }
+
+          const following =
+            data.following;
+
+          followButton.dataset.following =
+            following
+              ? "true"
+              : "false";
+
+          followButton.textContent =
+            following
+              ? "Following"
+              : "Follow";
+
+          followButton.classList.toggle(
+            "cta",
+            !following
+          );
+
+          followButton.classList.toggle(
+            "border",
+            following
+          );
+
+          followButton.classList.toggle(
+            "border-[#d9ad55]/60",
+            following
+          );
+
+          followButton.classList.toggle(
+            "bg-[#24102f]",
+            following
+          );
+
+          followButton.classList.toggle(
+            "text-[#ffe8a6]",
+            following
+          );
+
+          followButton.classList.toggle(
+            "text-white",
+            !following
+          );
+
+          const followerCount =
+            document.getElementById(
+              "followerCount"
+            );
+
+          if (followerCount) {
+
+            const currentCount =
+              Number(
+                followerCount.textContent ||
+                  "0"
+              );
+
+            followerCount.textContent =
+              String(
+                following
+                  ? currentCount + 1
+                  : Math.max(
+                      0,
+                      currentCount - 1
+                    )
+              );
+
+          }
+
+          followButton.disabled =
+            false;
+
+        }
+      );
+
+
+      /* --------------------------------
+         SHARE PROFILE
+      --------------------------------- */
+
+      const shareButton =
+        document.getElementById(
+          "shareProfileButton"
+        );
+
+      shareButton?.addEventListener(
+        "click",
+        async () => {
+
+          const shareData = {
+            title:
+              document.title,
+
+            text:
+              "Check out this Melagram profile.",
+
+            url:
+              window.location.href,
+          };
+
+          try {
+
+            if (
+              navigator.share
+            ) {
+
+              await navigator.share(
+                shareData
+              );
+
+            } else if (
+              navigator.clipboard
+            ) {
+
+              await navigator.clipboard.writeText(
+                window.location.href
+              );
+
+              const originalText =
+                shareButton.textContent;
+
+              shareButton.textContent =
+                "Profile Link Copied!";
+
+              setTimeout(
+                () => {
+
+                  shareButton.textContent =
+                    originalText;
+
+                },
+                2000
+              );
+
+            }
+
+          } catch {
+
+            console.log(
+              "Share cancelled or unavailable."
+            );
+
+          }
+
+        }
+      );
+
+    </script>
+
+  </body>
+
+</html>

@@ -1,0 +1,299 @@
+---
+import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+  env: Astro.locals.runtime.env,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user) {
+  return Astro.redirect("/auth/login");
+}
+
+const { data: notifications, error } = await supabase
+  .from("notifications")
+  .select(`
+    id,
+    actor_id,
+    type,
+    post_id,
+    content,
+    is_read,
+    created_at,
+    actor:profiles!notifications_actor_id_fkey (
+      username,
+      full_name,
+      avatar_url
+    )
+  `)
+  .eq("recipient_id", user.id)
+  .order("created_at", { ascending: false });
+
+const notificationList = notifications || [];
+
+function getNotificationIcon(type: string) {
+  if (type === "like") return "❤️";
+  if (type === "comment") return "💬";
+  if (type === "follow") return "👤";
+  return "🔔";
+}
+
+function getNotificationUrl(
+  type: string,
+  postId: string | null,
+  username: string | null
+) {
+  if (type === "follow" && username) {
+    return `/members/${username}`;
+  }
+
+  if (postId) {
+    return `/`;
+  }
+
+  return "#";
+}
+
+function formatTime(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+
+  const diff = Math.floor(
+    (now.getTime() - date.getTime()) / 1000
+  );
+
+  if (diff < 60) {
+    return "Just now";
+  }
+
+  if (diff < 3600) {
+    const minutes = Math.floor(diff / 60);
+    return `${minutes}m ago`;
+  }
+
+  if (diff < 86400) {
+    const hours = Math.floor(diff / 3600);
+    return `${hours}h ago`;
+  }
+
+  if (diff < 604800) {
+    const days = Math.floor(diff / 86400);
+    return `${days}d ago`;
+  }
+
+  return date.toLocaleDateString();
+}
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Notifications | Melagram</title>
+  </head>
+
+  <body class="min-h-screen bg-black text-white">
+    <main class="mx-auto min-h-screen w-full max-w-3xl px-4 py-8 sm:px-6">
+
+      <!-- Header -->
+      <div class="mb-8 flex items-center justify-between gap-4">
+        <div>
+          <a
+            href="/"
+            class="mb-3 inline-flex items-center gap-2 text-sm text-purple-300 transition hover:text-white"
+          >
+            ← Back to Melagram
+          </a>
+
+          <h1 class="text-3xl font-bold text-white sm:text-4xl">
+            🔔 Notifications
+          </h1>
+
+          <p class="mt-2 text-sm text-gray-400">
+            Stay up to date with what is happening around your profile.
+          </p>
+        </div>
+
+        {
+          notificationList.some(
+            (notification) => !notification.is_read
+          ) && (
+            <button
+              id="markAllReadButton"
+              type="button"
+              class="rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-2 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-500/20"
+            >
+              Mark all read
+            </button>
+          )
+        }
+      </div>
+
+      <!-- Notification List -->
+      {
+        error ? (
+          <section class="rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
+            <h2 class="text-lg font-semibold text-red-300">
+              We couldn't load your notifications.
+            </h2>
+
+            <p class="mt-2 text-sm text-gray-400">
+              Please refresh the page and try again.
+            </p>
+          </section>
+        ) : notificationList.length === 0 ? (
+          <section class="rounded-2xl border border-purple-500/20 bg-white/5 p-10 text-center shadow-2xl">
+            <div class="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-purple-900/40 text-4xl">
+              🔔
+            </div>
+
+            <h2 class="text-2xl font-bold text-white">
+              You're all caught up!
+            </h2>
+
+            <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-gray-400">
+              When someone likes your post, comments on your post, or follows
+              you, you'll see it right here.
+            </p>
+
+            <a
+              href="/"
+              class="mt-6 inline-flex rounded-xl bg-purple-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-600"
+            >
+              Back to Dashboard
+            </a>
+          </section>
+        ) : (
+          <section class="overflow-hidden rounded-2xl border border-purple-500/20 bg-white/5 shadow-2xl">
+
+            {
+              notificationList.map((notification) => {
+                const actor = Array.isArray(notification.actor)
+                  ? notification.actor[0]
+                  : notification.actor;
+
+                const actorName =
+                  actor?.full_name ||
+                  actor?.username ||
+                  "A Melagram member";
+
+                const actorUsername =
+                  actor?.username || null;
+
+                const url = getNotificationUrl(
+                  notification.type,
+                  notification.post_id,
+                  actorUsername
+                );
+
+                return (
+                  <a
+                    href={url}
+                    class={`notification-item block border-b border-white/10 px-5 py-5 transition last:border-b-0 hover:bg-white/10 ${
+                      notification.is_read
+                        ? "bg-transparent"
+                        : "bg-purple-900/20"
+                    }`}
+                    data-notification-id={notification.id}
+                  >
+                    <div class="flex items-start gap-4">
+
+                      <!-- Actor Avatar -->
+                      <div class="flex-shrink-0">
+                        {
+                          actor?.avatar_url ? (
+                            <img
+                              src={actor.avatar_url}
+                              alt={actorName}
+                              class="h-12 w-12 rounded-full border border-purple-400/30 object-cover"
+                            />
+                          ) : (
+                            <div class="flex h-12 w-12 items-center justify-center rounded-full border border-purple-400/30 bg-purple-900/50 text-xl">
+                              👤
+                            </div>
+                          )
+                        }
+                      </div>
+
+                      <!-- Notification Content -->
+                      <div class="min-w-0 flex-1">
+
+                        <div class="flex items-start justify-between gap-3">
+                          <div class="flex items-center gap-2">
+                            <span class="text-xl">
+                              {getNotificationIcon(notification.type)}
+                            </span>
+
+                            {
+                              !notification.is_read && (
+                                <span class="h-2.5 w-2.5 rounded-full bg-yellow-400"></span>
+                              )
+                            }
+                          </div>
+
+                          <span class="whitespace-nowrap text-xs text-gray-500">
+                            {formatTime(notification.created_at)}
+                          </span>
+                        </div>
+
+                        <p class="mt-2 text-sm leading-6 text-gray-200">
+                          <span class="font-bold text-white">
+                            {actorName}
+                          </span>{" "}
+                          {notification.content}
+                        </p>
+
+                        {
+                          actorUsername && (
+                            <p class="mt-1 text-xs text-purple-300">
+                              @{actorUsername}
+                            </p>
+                          )
+                        }
+                      </div>
+                    </div>
+                  </a>
+                );
+              })
+            }
+
+          </section>
+        )
+      }
+
+    </main>
+
+    <script>
+      const markAllReadButton =
+        document.getElementById("markAllReadButton");
+
+      if (markAllReadButton) {
+        markAllReadButton.addEventListener("click", async () => {
+          markAllReadButton.setAttribute("disabled", "true");
+          markAllReadButton.textContent = "Marking...";
+
+          const response = await fetch("/api/notifications/read-all", {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            markAllReadButton.removeAttribute("disabled");
+            markAllReadButton.textContent = "Mark all read";
+            alert("We couldn't mark your notifications as read.");
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

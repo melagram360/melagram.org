@@ -22,227 +22,1095 @@ const displayName =
   user.email?.split("@")[0] ||
   "Member";
 
-  const signOutResult = Astro.getActionResult(actions.signOut);
+const signOutResult = Astro.getActionResult(actions.signOut);
 
 if (signOutResult?.data?.success) {
   return Astro.redirect("/");
+}
+
+/* --------------------------------
+   NOTIFICATIONS
+--------------------------------- */
+
+const {
+  count: unreadNotificationCount,
+} = await supabase
+  .from("notifications")
+  .select("id", {
+    count: "exact",
+    head: true,
+  })
+  .eq("recipient_id", user.id)
+  .eq("is_read", false);
+
+/* --------------------------------
+   SOCIAL FEED
+--------------------------------- */
+
+const {
+  data: posts,
+  error: postsError,
+} = await supabase
+  .from("posts")
+  .select("id, user_id, content, created_at")
+  .order("created_at", { ascending: false });
+
+let feedPosts: any[] = [];
+
+if (!postsError && posts && posts.length > 0) {
+  const userIds = [
+    ...new Set(posts.map((post) => post.user_id)),
+  ];
+
+  /* --------------------------------
+     PROFILES
+  --------------------------------- */
+
+  const {
+    data: profiles,
+    error: profilesError,
+  } = await supabase
+    .from("profiles")
+    .select("id, username, full_name, avatar_url")
+    .in("id", userIds);
+
+  const profileMap = new Map(
+    (profiles ?? []).map(
+      (profile) => [profile.id, profile]
+    )
+  );
+
+  /* --------------------------------
+     LIKES
+  --------------------------------- */
+
+  const postIds = posts.map(
+    (post) => post.id
+  );
+
+  const {
+    data: likes,
+    error: likesError,
+  } = await supabase
+    .from("post_likes")
+    .select("post_id, user_id")
+    .in("post_id", postIds);
+
+  const likeCountMap =
+    new Map<string, number>();
+
+  const likedByCurrentUser =
+    new Set<string>();
+
+  if (!likesError && likes) {
+    for (const like of likes) {
+      likeCountMap.set(
+        like.post_id,
+        (likeCountMap.get(like.post_id) ?? 0) + 1
+      );
+
+      if (like.user_id === user.id) {
+        likedByCurrentUser.add(
+          like.post_id
+        );
+      }
+    }
+  }
+
+  /* --------------------------------
+     COMMENTS
+  --------------------------------- */
+
+  const {
+    data: comments,
+    error: commentsError,
+  } = await supabase
+    .from("post_comments")
+    .select(
+      "id, post_id, user_id, content, created_at"
+    )
+    .in("post_id", postIds)
+    .order("created_at", {
+      ascending: true,
+    });
+
+  const commentCountMap =
+    new Map<string, number>();
+
+  if (!commentsError && comments) {
+    for (const comment of comments) {
+      commentCountMap.set(
+        comment.post_id,
+        (commentCountMap.get(comment.post_id) ?? 0) + 1
+      );
+    }
+  }
+
+  /* --------------------------------
+     COMMENTER PROFILES
+  --------------------------------- */
+
+  const commentUserIds =
+    !commentsError && comments
+      ? comments.map(
+          (comment) => comment.user_id
+        )
+      : [];
+
+  const allProfileIds = [
+    ...new Set([
+      ...userIds,
+      ...commentUserIds,
+    ]),
+  ];
+
+  const {
+    data: allProfiles,
+  } = await supabase
+    .from("profiles")
+    .select(
+      "id, username, full_name, avatar_url"
+    )
+    .in("id", allProfileIds);
+
+  const allProfileMap = new Map(
+    (allProfiles ?? profiles ?? []).map(
+      (profile) => [
+        profile.id,
+        profile,
+      ]
+    )
+  );
+
+  const commentsByPost =
+    new Map<string, any[]>();
+
+  if (!commentsError && comments) {
+    for (const comment of comments) {
+      const existing =
+        commentsByPost.get(
+          comment.post_id
+        ) ?? [];
+
+      existing.push({
+        ...comment,
+        profile:
+          allProfileMap.get(
+            comment.user_id
+          ) ?? null,
+      });
+
+      commentsByPost.set(
+        comment.post_id,
+        existing
+      );
+    }
+  }
+
+  /* --------------------------------
+     BUILD FEED
+  --------------------------------- */
+
+  feedPosts = posts.map((post) => ({
+    ...post,
+
+    profile:
+      allProfileMap.get(
+        post.user_id
+      ) ??
+      profileMap.get(
+        post.user_id
+      ) ??
+      null,
+
+    likeCount:
+      likeCountMap.get(post.id) ?? 0,
+
+    likedByCurrentUser:
+      likedByCurrentUser.has(
+        post.id
+      ),
+
+    commentCount:
+      commentCountMap.get(
+        post.id
+      ) ?? 0,
+
+    comments:
+      commentsByPost.get(
+        post.id
+      ) ?? [],
+  }));
 }
 ---
 
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="viewport"
+      content="width=device-width"
+    />
     <title>Melagram — Dashboard</title>
   </head>
 
   <body>
-    <main class="min-h-screen bg-[#050208] text-[#fff7e5]">
+    <main
+      class="min-h-screen bg-[#050208] text-[#fff7e5]"
+    >
+
       <!-- Navigation -->
-      <nav class="border-b border-[#d9ad55]/20 bg-black/40 backdrop-blur-xl">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
-          <a href="/" class="flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-full border border-[#d9ad55]/60 bg-[#6d19c9]/20 text-lg font-semibold text-[#ffe8a6]">
+      <nav
+        class="border-b border-[#d9ad55]/20 bg-black/40 backdrop-blur-xl"
+      >
+        <div
+          class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8"
+        >
+
+          <a
+            href="/"
+            class="flex items-center gap-3"
+          >
+            <div
+              class="flex h-10 w-10 items-center justify-center rounded-full border border-[#d9ad55]/60 bg-[#6d19c9]/20 text-lg font-semibold text-[#ffe8a6]"
+            >
               M
             </div>
 
-            <span class="font-['Cinzel'] text-lg tracking-[0.18em] text-[#ffe8a6]">
+            <span
+              class="font-['Cinzel'] text-lg tracking-[0.18em] text-[#ffe8a6]"
+            >
               MELAGRAM
             </span>
           </a>
 
-          <div class="hidden items-center gap-7 text-sm text-white/70 md:flex">
-            <a href="/discover" class="nav-link">Discover</a>
-            <a href="/communities" class="nav-link">Communities</a>
-            <a href="/creators" class="nav-link">Creators</a>
+          <div
+            class="hidden items-center gap-7 text-sm text-white/70 md:flex"
+          >
+            <a
+              href="/discover"
+              class="nav-link"
+            >
+              Discover
+            </a>
+
+            <a
+              href="/communities"
+              class="nav-link"
+            >
+              Communities
+            </a>
+
+            <a
+              href="/creators"
+              class="nav-link"
+            >
+              Creators
+            </a>
           </div>
 
           <div class="flex items-center gap-2">
-  <a
-    href="/profile"
-    class="rounded-full border border-[#d9ad55]/50 px-4 py-2 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
-  >
-    {displayName}
-  </a>
 
- <button
-  id="signout-btn"
-  type="button"
-  class="rounded-full border border-white/15 px-4 py-2 text-sm text-white/60 transition hover:border-[#d9ad55]/50 hover:text-[#ffe8a6]"
->
-  Sign Out
-</button>
-</div>
+            <a
+              href="/notifications"
+              aria-label="Notifications"
+              class="relative inline-flex items-center justify-center rounded-full border border-[#d9ad55]/50 px-3 py-2 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+            >
+              <span aria-hidden="true">🔔</span>
+              <span class="ml-1 hidden sm:inline">
+                Notifications
+              </span>
+
+              {unreadNotificationCount &&
+                unreadNotificationCount > 0 && (
+                  <span
+                    class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6d19c9] px-1 text-[10px] font-bold text-white ring-2 ring-black"
+                  >
+                    {unreadNotificationCount > 99
+                      ? "99+"
+                      : unreadNotificationCount}
+                  </span>
+                )}
+            </a>
+
+            <a
+              href="/profile"
+              class="rounded-full border border-[#d9ad55]/50 px-4 py-2 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+            >
+              {displayName}
+            </a>
+
+            <button
+              id="signout-btn"
+              type="button"
+              class="rounded-full border border-white/15 px-4 py-2 text-sm text-white/60 transition hover:border-[#d9ad55]/50 hover:text-[#ffe8a6]"
+            >
+              Sign Out
+            </button>
+
+          </div>
+
+        </div>
       </nav>
 
       <!-- Welcome -->
-      <section class="relative overflow-hidden">
-        <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(109,25,201,.28),transparent_42rem)]"></div>
+      <section
+        class="relative overflow-hidden"
+      >
 
-        <div class="relative mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:py-20">
+        <div
+          class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(109,25,201,.28),transparent_42rem)]"
+        ></div>
+
+        <div
+          class="relative mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:py-20"
+        >
+
           <div class="max-w-3xl">
-            <p class="mb-4 text-xs font-semibold uppercase tracking-[0.35em] text-[#d9ad55]">
+
+            <p
+              class="mb-4 text-xs font-semibold uppercase tracking-[0.35em] text-[#d9ad55]"
+            >
               Your Melagram
             </p>
 
-            <h1 class="text-4xl font-semibold leading-tight text-[#ffe8a6] sm:text-5xl lg:text-6xl">
+            <h1
+              class="text-4xl font-semibold leading-tight text-[#ffe8a6] sm:text-5xl lg:text-6xl"
+            >
               Welcome Home.
             </h1>
 
-            <p class="mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg">
-              This is your space to connect, discover new people, build
-              communities, and share what makes you uniquely you.
+            <p
+              class="mt-5 max-w-2xl text-base leading-8 text-white/65 sm:text-lg"
+            >
+              This is your space to connect, discover
+              new people, build communities, and share
+              what makes you uniquely you.
             </p>
+
           </div>
+
         </div>
+
       </section>
 
       <!-- Quick Actions -->
-      <section class="mx-auto max-w-7xl px-5 pb-12 sm:px-8">
-        <div class="grid gap-5 md:grid-cols-3">
+      <section
+        class="mx-auto max-w-7xl px-5 pb-12 sm:px-8"
+      >
+
+        <div
+          class="grid gap-5 md:grid-cols-3"
+        >
+
           <a
             href="/discover"
             class="feature-card gold-border luxury-panel rounded-2xl p-6"
           >
-            <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
+
+            <p
+              class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]"
+            >
               Explore
             </p>
 
-            <h2 class="mt-3 text-2xl text-[#ffe8a6]">
+            <h2
+              class="mt-3 text-2xl text-[#ffe8a6]"
+            >
               Discover
             </h2>
 
-            <p class="mt-3 text-sm leading-7 text-white/60">
-              Find creators, communities, conversations, and people worth
+            <p
+              class="mt-3 text-sm leading-7 text-white/60"
+            >
+              Find creators, communities,
+              conversations, and people worth
               connecting with.
             </p>
+
           </a>
 
           <a
             href="/communities"
             class="feature-card gold-border luxury-panel rounded-2xl p-6"
           >
-            <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
+
+            <p
+              class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]"
+            >
               Belong
             </p>
 
-            <h2 class="mt-3 text-2xl text-[#ffe8a6]">
+            <h2
+              class="mt-3 text-2xl text-[#ffe8a6]"
+            >
               Communities
             </h2>
 
-            <p class="mt-3 text-sm leading-7 text-white/60">
-              Step into conversations built around the things you love.
+            <p
+              class="mt-3 text-sm leading-7 text-white/60"
+            >
+              Step into conversations built around
+              the things you love.
             </p>
+
           </a>
 
           <a
             href="/creators"
             class="feature-card gold-border luxury-panel rounded-2xl p-6"
           >
-            <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
+
+            <p
+              class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]"
+            >
               Create
             </p>
 
-            <h2 class="mt-3 text-2xl text-[#ffe8a6]">
+            <h2
+              class="mt-3 text-2xl text-[#ffe8a6]"
+            >
               Creators Vault
             </h2>
 
-            <p class="mt-3 text-sm leading-7 text-white/60">
-              Discover creative work and eventually showcase your own.
+            <p
+              class="mt-3 text-sm leading-7 text-white/60"
+            >
+              Discover creative work and eventually
+              showcase your own.
             </p>
+
           </a>
+
         </div>
+
       </section>
 
-      <!-- Feed Preview -->
-      <section class="mx-auto max-w-7xl px-5 pb-20 sm:px-8">
-        <div class="grid gap-8 lg:grid-cols-[1fr_320px]">
+      <!-- Social Feed -->
+      <section
+        class="mx-auto max-w-7xl px-5 pb-20 sm:px-8"
+      >
+
+        <div
+          class="grid gap-8 lg:grid-cols-[1fr_320px]"
+        >
+
+          <!-- Feed Column -->
           <div>
-            <div class="mb-5 flex items-end justify-between">
+
+            <div
+              class="mb-6 flex items-end justify-between"
+            >
+
               <div>
-                <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
-                  Coming Soon
+
+                <p
+                  class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]"
+                >
+                  Social
                 </p>
 
-                <h2 class="mt-2 text-3xl text-[#ffe8a6]">
+                <h2
+                  class="mt-2 text-3xl text-[#ffe8a6]"
+                >
                   Your Feed
                 </h2>
+
+                <p
+                  class="mt-2 text-sm text-white/45"
+                >
+                  What's happening across Melagram.
+                </p>
+
               </div>
+
+              <a
+                href="/create-post"
+                class="hidden rounded-full bg-[#6d19c9] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-950/30 transition hover:bg-[#7d27dc] sm:inline-flex"
+              >
+                + Create Post
+              </a>
+
             </div>
 
-            <div class="gold-border luxury-panel rounded-2xl p-7 sm:p-9">
-              <div class="gold-line mb-7"></div>
+            <!-- Mobile Create Post -->
+            <a
+              href="/create-post"
+              class="mb-5 flex w-full items-center justify-center rounded-full bg-[#6d19c9] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#7d27dc] sm:hidden"
+            >
+              + Create Post
+            </a>
 
-              <h3 class="text-2xl text-[#ffe8a6]">
-                Your Melagram starts here.
-              </h3>
+            <!-- Feed Error -->
+            {postsError ? (
 
-              <p class="mt-4 max-w-2xl text-sm leading-7 text-white/60">
-                Soon you'll see posts from the people and communities you
-                follow right here. Your timeline will become the heartbeat of
-                your Melagram experience.
-              </p>
+              <div
+                class="gold-border luxury-panel rounded-2xl p-7"
+              >
 
-              <div class="mt-7 flex flex-wrap gap-3">
-                <a
-                  href="/discover"
-                  class="cta rounded-full px-6 py-3 text-sm font-semibold text-white"
+                <div
+                  class="gold-line mb-6"
+                ></div>
+
+                <h3
+                  class="text-xl text-[#ffe8a6]"
                 >
-                  Start Exploring
-                </a>
+                  Your feed couldn't load.
+                </h3>
 
-                <a
-                  href="/communities"
-                  class="rounded-full border border-[#d9ad55]/40 px-6 py-3 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+                <p
+                  class="mt-3 text-sm leading-7 text-white/55"
                 >
-                  Browse Communities
-                </a>
+                  We had trouble retrieving your posts.
+                  Please refresh the page and try again.
+                </p>
+
               </div>
-            </div>
+
+            ) : feedPosts.length === 0 ? (
+
+              <!-- Empty Feed -->
+              <div
+                class="gold-border luxury-panel rounded-2xl p-7 sm:p-9"
+              >
+
+                <div
+                  class="gold-line mb-7"
+                ></div>
+
+                <div
+                  class="flex h-14 w-14 items-center justify-center rounded-full border border-[#d9ad55]/40 bg-[#6d19c9]/15 text-2xl text-[#ffe8a6]"
+                >
+                  ✦
+                </div>
+
+                <h3
+                  class="mt-6 text-2xl text-[#ffe8a6]"
+                >
+                  Your Melagram starts here.
+                </h3>
+
+                <p
+                  class="mt-4 max-w-2xl text-sm leading-7 text-white/60"
+                >
+                  There aren't any posts here yet.
+                  Start the conversation and let the
+                  Melagram community hear from you.
+                </p>
+
+                <div class="mt-7">
+
+                  <a
+                    href="/create-post"
+                    class="cta inline-flex rounded-full px-6 py-3 text-sm font-semibold text-white"
+                  >
+                    Create Your First Post
+                  </a>
+
+                </div>
+
+              </div>
+
+            ) : (
+
+              <!-- Posts -->
+              <div
+                class="space-y-5"
+              >
+
+                {feedPosts.map((post) => {
+
+                  const profile =
+                    post.profile;
+
+                  const postName =
+                    profile?.full_name ||
+                    profile?.username ||
+                    "Melagram Member";
+
+                  const username =
+                    profile?.username
+                      ? `@${profile.username}`
+                      : "";
+
+                  const avatarUrl =
+                    profile?.avatar_url;
+
+                  const postDate =
+                    post.created_at
+                      ? new Date(
+                          post.created_at
+                        ).toLocaleString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          }
+                        )
+                      : "";
+
+                  return (
+
+                    <article
+                      id={`post-${post.id}`}
+                      class="gold-border luxury-panel rounded-2xl p-6 transition duration-300 hover:border-[#d9ad55]/50 sm:p-7"
+                    >
+
+                      <!-- Author -->
+                      <div
+                        class="flex items-start gap-4"
+                      >
+
+                        {avatarUrl ? (
+
+                          <img
+                            src={avatarUrl}
+                            alt={postName}
+                            class="h-12 w-12 shrink-0 rounded-full border border-[#d9ad55]/40 object-cover"
+                          />
+
+                        ) : (
+
+                          <div
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/40 bg-[#6d19c9]/20 text-lg font-semibold text-[#ffe8a6]"
+                          >
+                            {postName
+                              .charAt(0)
+                              .toUpperCase()}
+                          </div>
+
+                        )}
+
+                        <div
+                          class="min-w-0 flex-1"
+                        >
+
+                          <div
+                            class="flex flex-wrap items-baseline gap-x-2 gap-y-1"
+                          >
+
+                            <span
+                              class="font-semibold text-[#ffe8a6]"
+                            >
+                              {postName}
+                            </span>
+
+                            {username && (
+
+                              <span
+                                class="text-sm text-white/40"
+                              >
+                                {username}
+                              </span>
+
+                            )}
+
+                          </div>
+
+                          {postDate && (
+
+                            <p
+                              class="mt-1 text-xs text-white/35"
+                            >
+                              {postDate}
+                            </p>
+
+                          )}
+
+                        </div>
+
+                      </div>
+
+                      <!-- Content -->
+                      <div
+                        class="mt-5 border-t border-white/10 pt-5"
+                      >
+
+                        <p
+                          class="whitespace-pre-wrap text-[15px] leading-7 text-white/80"
+                        >
+                          {post.content}
+                        </p>
+
+                      </div>
+
+                      <!-- Engagement -->
+                      <div
+                        class="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4"
+                      >
+
+                        <!-- LIKE -->
+                        <button
+                          type="button"
+                          class:list={[
+                            "like-btn",
+                            "inline-flex",
+                            "items-center",
+                            "gap-2",
+                            "rounded-full",
+                            "px-3",
+                            "py-2",
+                            "text-xs",
+                            "uppercase",
+                            "tracking-[0.12em]",
+                            "transition",
+                            post.likedByCurrentUser
+                              ? "bg-[#6d19c9]/25 text-[#ffe8a6]"
+                              : "text-white/40 hover:bg-[#6d19c9]/15 hover:text-[#ffe8a6]",
+                          ]}
+                          data-post-id={post.id}
+                          aria-pressed={
+                            post.likedByCurrentUser
+                              ? "true"
+                              : "false"
+                          }
+                        >
+
+                          <span
+                            class="like-icon text-base"
+                          >
+                            {post.likedByCurrentUser
+                              ? "♥"
+                              : "♡"}
+                          </span>
+
+                          <span
+                            class="like-label"
+                          >
+                            {post.likedByCurrentUser
+                              ? "Liked"
+                              : "Like"}
+                          </span>
+
+                          <span
+                            class="like-count"
+                          >
+                            {post.likeCount}
+                          </span>
+
+                        </button>
+
+                        <!-- COMMENT -->
+                        <button
+                          type="button"
+                          class="comment-toggle inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/40 transition hover:bg-[#6d19c9]/15 hover:text-[#ffe8a6]"
+                          data-post-id={post.id}
+                        >
+
+                          <span>
+                            ○
+                          </span>
+
+                          <span>
+                            Comment
+                          </span>
+
+                          <span
+                            class="comment-count"
+                          >
+                            {post.commentCount}
+                          </span>
+
+                        </button>
+
+                        <!-- SHARE -->
+                        <button
+                          type="button"
+                          class="share-btn inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/40 transition hover:bg-[#6d19c9]/15 hover:text-[#ffe8a6]"
+                          data-post-id={post.id}
+                        >
+
+                          <span
+                            class="share-icon"
+                          >
+                            ↗
+                          </span>
+
+                          <span
+                            class="share-label"
+                          >
+                            Share
+                          </span>
+
+                        </button>
+
+                      </div>
+
+                      <!-- Comment Area -->
+                      <div
+                        class="comment-area mt-4 hidden border-t border-white/10 pt-4"
+                        data-post-id={post.id}
+                      >
+
+                        <!-- Existing Comments -->
+                        <div
+                          class="comment-list space-y-3"
+                        >
+
+                          {post.comments.length > 0 ? (
+
+                            post.comments.map(
+                              (comment: any) => {
+
+                                const commentProfile =
+                                  comment.profile;
+
+                                const commentName =
+                                  commentProfile?.full_name ||
+                                  commentProfile?.username ||
+                                  "Melagram Member";
+
+                                const commentAvatar =
+                                  commentProfile?.avatar_url;
+
+                                const commentDate =
+                                  comment.created_at
+                                    ? new Date(
+                                        comment.created_at
+                                      ).toLocaleString(
+                                        "en-US",
+                                        {
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                        }
+                                      )
+                                    : "";
+
+                                return (
+
+                                  <div
+                                    class="flex gap-3 rounded-xl border border-white/10 bg-black/20 p-3"
+                                  >
+
+                                    {commentAvatar ? (
+
+                                      <img
+                                        src={commentAvatar}
+                                        alt={commentName}
+                                        class="h-9 w-9 shrink-0 rounded-full border border-[#d9ad55]/30 object-cover"
+                                      />
+
+                                    ) : (
+
+                                      <div
+                                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/30 bg-[#6d19c9]/15 text-sm font-semibold text-[#ffe8a6]"
+                                      >
+                                        {commentName
+                                          .charAt(0)
+                                          .toUpperCase()}
+                                      </div>
+
+                                    )}
+
+                                    <div
+                                      class="min-w-0 flex-1"
+                                    >
+
+                                      <div
+                                        class="flex flex-wrap items-baseline gap-x-2"
+                                      >
+
+                                        <span
+                                          class="text-sm font-semibold text-[#ffe8a6]"
+                                        >
+                                          {commentName}
+                                        </span>
+
+                                        {commentDate && (
+
+                                          <span
+                                            class="text-[11px] text-white/30"
+                                          >
+                                            {commentDate}
+                                          </span>
+
+                                        )}
+
+                                      </div>
+
+                                      <p
+                                        class="mt-1 whitespace-pre-wrap text-sm leading-6 text-white/70"
+                                      >
+                                        {comment.content}
+                                      </p>
+
+                                    </div>
+
+                                  </div>
+
+                                );
+
+                              }
+                            )
+
+                          ) : (
+
+                            <p
+                              class="py-2 text-sm text-white/35"
+                            >
+                              No comments yet. Be the first
+                              to join the conversation.
+                            </p>
+
+                          )}
+
+                        </div>
+
+                        <!-- New Comment -->
+                        <form
+                          class="comment-form mt-4 flex gap-2"
+                          data-post-id={post.id}
+                        >
+
+                          <input
+                            type="text"
+                            name="content"
+                            maxlength="1000"
+                            required
+                            placeholder="Write a comment..."
+                            class="min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#d9ad55]/50"
+                          />
+
+                          <button
+                            type="submit"
+                            class="comment-submit rounded-full bg-[#6d19c9] px-5 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#7d27dc]"
+                          >
+                            Post
+                          </button>
+
+                        </form>
+
+                        <p
+                          class="comment-message mt-2 hidden text-xs text-red-300"
+                        ></p>
+
+                      </div>
+
+                    </article>
+
+                  );
+
+                })}
+
+              </div>
+
+            )}
+
           </div>
 
           <!-- Sidebar -->
-          <aside class="gold-border luxury-panel rounded-2xl p-6">
-            <p class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]">
+          <aside
+            class="gold-border luxury-panel rounded-2xl p-6"
+          >
+
+            <p
+              class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]"
+            >
               Member Area
             </p>
 
-            <h2 class="mt-3 text-2xl text-[#ffe8a6]">
+            <h2
+              class="mt-3 text-2xl text-[#ffe8a6]"
+            >
               Your Space
             </h2>
 
-            <div class="gold-line my-5"></div>
+            <div
+              class="gold-line my-5"
+            ></div>
 
-            <div class="space-y-4 text-sm text-white/60">
-              <div class="rounded-xl border border-white/10 bg-black/20 p-4">
-                <p class="text-[#ffe8a6]">Profile</p>
-                <p class="mt-1">Customize your Melagram identity.</p>
+            <div
+              class="space-y-4 text-sm text-white/60"
+            >
+
+              <a
+                href="/profile"
+                class="block rounded-xl border border-white/10 bg-black/20 p-4 transition hover:border-[#d9ad55]/30"
+              >
+
+                <p
+                  class="text-[#ffe8a6]"
+                >
+                  Profile
+                </p>
+
+                <p class="mt-1">
+                  Customize your Melagram identity.
+                </p>
+
+              </a>
+
+              <a
+                href="/discover"
+                class="block rounded-xl border border-white/10 bg-black/20 p-4 transition hover:border-[#d9ad55]/30"
+              >
+
+                <p
+                  class="text-[#ffe8a6]"
+                >
+                  Connections
+                </p>
+
+                <p class="mt-1">
+                  Discover people and creators to connect with.
+                </p>
+
+              </a>
+
+              <div
+                class="rounded-xl border border-white/10 bg-black/20 p-4"
+              >
+
+                <p
+                  class="text-[#ffe8a6]"
+                >
+                  Notifications
+                </p>
+
+                <p class="mt-1">
+                  Stay connected to what matters.
+                </p>
+
               </div>
 
-              <div class="rounded-xl border border-white/10 bg-black/20 p-4">
-                <p class="text-[#ffe8a6]">Connections</p>
-                <p class="mt-1">Your followers and people you follow.</p>
-              </div>
-
-              <div class="rounded-xl border border-white/10 bg-black/20 p-4">
-                <p class="text-[#ffe8a6]">Notifications</p>
-                <p class="mt-1">Stay connected to what matters.</p>
-              </div>
             </div>
+
           </aside>
+
         </div>
+
       </section>
 
       <!-- Footer -->
-      <footer class="border-t border-[#d9ad55]/15 px-5 py-8 sm:px-8">
-        <div class="mx-auto flex max-w-7xl flex-col gap-3 text-sm text-white/40 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 Melagram. Connect. Network. Create. Build Community.</p>
+      <footer
+        class="border-t border-[#d9ad55]/15 px-5 py-8 sm:px-8"
+      >
 
-          <a href="/" class="text-[#d9ad55] hover:text-[#ffe8a6]">
+        <div
+          class="mx-auto flex max-w-7xl flex-col gap-3 text-sm text-white/40 sm:flex-row sm:items-center sm:justify-between"
+        >
+
+          <p>
+            © 2026 Melagram. Connect. Network. Create.
+            Build Community.
+          </p>
+
+          <a
+            href="/"
+            class="text-[#d9ad55] hover:text-[#ffe8a6]"
+          >
             Return Home
           </a>
+
         </div>
+
       </footer>
+
     </main>
   </body>
 </html>
@@ -250,23 +1118,499 @@ if (signOutResult?.data?.success) {
 <script>
   import { actions } from "astro:actions";
 
-  const signOutButton = document.getElementById(
-    "signout-btn"
-  ) as HTMLButtonElement | null;
+  /* --------------------------------
+     SIGN OUT
+  --------------------------------- */
 
-  signOutButton?.addEventListener("click", async () => {
-    signOutButton.disabled = true;
-    signOutButton.textContent = "Signing Out...";
+  const signOutButton =
+    document.getElementById(
+      "signout-btn"
+    ) as HTMLButtonElement | null;
 
-    const { data, error } = await actions.signOut();
+  signOutButton?.addEventListener(
+    "click",
+    async () => {
 
-    if (error || !data?.success) {
-      signOutButton.disabled = false;
-      signOutButton.textContent = "Sign Out";
-      alert("We couldn't sign you out. Please try again.");
-      return;
+      signOutButton.disabled = true;
+      signOutButton.textContent =
+        "Signing Out...";
+
+      const {
+        data,
+        error,
+      } = await actions.signOut();
+
+      if (
+        error ||
+        !data?.success
+      ) {
+
+        signOutButton.disabled =
+          false;
+
+        signOutButton.textContent =
+          "Sign Out";
+
+        alert(
+          "We couldn't sign you out. Please try again."
+        );
+
+        return;
+      }
+
+      window.location.href = "/";
     }
+  );
 
-    window.location.href = "/";
-  });
+  /* --------------------------------
+     LIKES
+  --------------------------------- */
+
+  const likeButtons =
+    document.querySelectorAll<HTMLButtonElement>(
+      ".like-btn"
+    );
+
+  likeButtons.forEach(
+    (button) => {
+
+      button.addEventListener(
+        "click",
+        async () => {
+
+          const postId =
+            button.dataset.postId;
+
+          if (!postId) {
+            return;
+          }
+
+          if (button.disabled) {
+            return;
+          }
+
+          button.disabled = true;
+
+          const {
+            data,
+            error,
+          } = await actions.toggleLike({
+            postId,
+          });
+
+          if (
+            error ||
+            !data?.success
+          ) {
+
+            button.disabled = false;
+
+            alert(
+              data?.message ||
+                "We couldn't update your like. Please try again."
+            );
+
+            return;
+          }
+
+          const liked =
+            data.liked;
+
+          button.setAttribute(
+            "aria-pressed",
+            liked
+              ? "true"
+              : "false"
+          );
+
+          const icon =
+            button.querySelector(
+              ".like-icon"
+            );
+
+          const label =
+            button.querySelector(
+              ".like-label"
+            );
+
+          const count =
+            button.querySelector(
+              ".like-count"
+            );
+
+          if (icon) {
+            icon.textContent =
+              liked
+                ? "♥"
+                : "♡";
+          }
+
+          if (label) {
+            label.textContent =
+              liked
+                ? "Liked"
+                : "Like";
+          }
+
+          if (count) {
+
+            const currentCount =
+              Number(
+                count.textContent ||
+                  "0"
+              );
+
+            const newCount =
+              liked
+                ? currentCount + 1
+                : Math.max(
+                    0,
+                    currentCount - 1
+                  );
+
+            count.textContent =
+              String(newCount);
+          }
+
+          button.classList.toggle(
+            "bg-[#6d19c9]/25",
+            liked
+          );
+
+          button.classList.toggle(
+            "text-[#ffe8a6]",
+            liked
+          );
+
+          button.classList.toggle(
+            "text-white/40",
+            !liked
+          );
+
+          button.classList.toggle(
+            "hover:bg-[#6d19c9]/15",
+            !liked
+          );
+
+          button.classList.toggle(
+            "hover:text-[#ffe8a6]",
+            !liked
+          );
+
+          button.disabled = false;
+        }
+      );
+    }
+  );
+
+  /* --------------------------------
+     COMMENT TOGGLE
+  --------------------------------- */
+
+  const commentButtons =
+    document.querySelectorAll<HTMLButtonElement>(
+      ".comment-toggle"
+    );
+
+  commentButtons.forEach(
+    (button) => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          const postId =
+            button.dataset.postId;
+
+          if (!postId) {
+            return;
+          }
+
+          const commentArea =
+            document.querySelector<HTMLElement>(
+              `.comment-area[data-post-id="${postId}"]`
+            );
+
+          if (!commentArea) {
+            return;
+          }
+
+          commentArea.classList.toggle(
+            "hidden"
+          );
+
+          if (
+            !commentArea.classList.contains(
+              "hidden"
+            )
+          ) {
+
+            const input =
+              commentArea.querySelector<HTMLInputElement>(
+                'input[name="content"]'
+              );
+
+            input?.focus();
+          }
+        }
+      );
+    }
+  );
+
+  /* --------------------------------
+     CREATE COMMENTS
+  --------------------------------- */
+
+  const commentForms =
+    document.querySelectorAll<HTMLFormElement>(
+      ".comment-form"
+    );
+
+  commentForms.forEach(
+    (form) => {
+
+      form.addEventListener(
+        "submit",
+        async (event) => {
+
+          event.preventDefault();
+
+          const postId =
+            form.dataset.postId;
+
+          const input =
+            form.querySelector<HTMLInputElement>(
+              'input[name="content"]'
+            );
+
+          const submitButton =
+            form.querySelector<HTMLButtonElement>(
+              ".comment-submit"
+            );
+
+          const message =
+            form.parentElement?.querySelector<HTMLElement>(
+              ".comment-message"
+            );
+
+          if (
+            !postId ||
+            !input ||
+            !submitButton
+          ) {
+            return;
+          }
+
+          const content =
+            input.value.trim();
+
+          if (!content) {
+            return;
+          }
+
+          submitButton.disabled =
+            true;
+
+          submitButton.textContent =
+            "Posting...";
+
+          if (message) {
+            message.classList.add(
+              "hidden"
+            );
+          }
+
+          const {
+            data,
+            error,
+          } = await actions.createComment({
+            postId,
+            content,
+          });
+
+          if (
+            error ||
+            !data?.success
+          ) {
+
+            submitButton.disabled =
+              false;
+
+            submitButton.textContent =
+              "Post";
+
+            if (message) {
+
+              message.textContent =
+                data?.message ||
+                "We couldn't post your comment. Please try again.";
+
+              message.classList.remove(
+                "hidden"
+              );
+            }
+
+            return;
+          }
+
+          window.location.reload();
+        }
+      );
+    }
+  );
+
+  /* --------------------------------
+     SHARE POSTS
+  --------------------------------- */
+
+  const shareButtons =
+    document.querySelectorAll<HTMLButtonElement>(
+      ".share-btn"
+    );
+
+  shareButtons.forEach(
+    (button) => {
+
+      button.addEventListener(
+        "click",
+        async () => {
+
+          const postId =
+            button.dataset.postId;
+
+          if (!postId) {
+            return;
+          }
+
+          if (button.disabled) {
+            return;
+          }
+
+          const shareUrl =
+            `${window.location.origin}/dashboard#post-${postId}`;
+
+          const label =
+            button.querySelector(
+              ".share-label"
+            );
+
+          const icon =
+            button.querySelector(
+              ".share-icon"
+            );
+
+          const originalLabel =
+            "Share";
+
+          const originalIcon =
+            "↗";
+
+          button.disabled = true;
+
+          try {
+
+            if (
+              navigator.share
+            ) {
+
+              await navigator.share({
+                title:
+                  "Melagram Post",
+                text:
+                  "Check out this post on Melagram.",
+                url:
+                  shareUrl,
+              });
+
+            } else if (
+              navigator.clipboard
+            ) {
+
+              await navigator.clipboard.writeText(
+                shareUrl
+              );
+
+            } else {
+
+              const textarea =
+                document.createElement(
+                  "textarea"
+                );
+
+              textarea.value =
+                shareUrl;
+
+              textarea.style.position =
+                "fixed";
+
+              textarea.style.opacity =
+                "0";
+
+              document.body.appendChild(
+                textarea
+              );
+
+              textarea.select();
+
+              document.execCommand(
+                "copy"
+              );
+
+              textarea.remove();
+            }
+
+            if (label) {
+              label.textContent =
+                "Copied!";
+            }
+
+            if (icon) {
+              icon.textContent =
+                "✓";
+            }
+
+            button.classList.add(
+              "bg-[#6d19c9]/25",
+              "text-[#ffe8a6]"
+            );
+
+            window.setTimeout(
+              () => {
+
+                if (label) {
+                  label.textContent =
+                    originalLabel;
+                }
+
+                if (icon) {
+                  icon.textContent =
+                    originalIcon;
+                }
+
+                button.classList.remove(
+                  "bg-[#6d19c9]/25",
+                  "text-[#ffe8a6]"
+                );
+
+                button.disabled =
+                  false;
+
+              },
+              1800
+            );
+
+          } catch (error) {
+
+            console.error(
+              "Share error:",
+              error
+            );
+
+            button.disabled =
+              false;
+          }
+        }
+      );
+    }
+  );
 </script>
