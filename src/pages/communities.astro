@@ -1,5 +1,15 @@
 ---
 import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
 
 const featuredCommunities = [
   {
@@ -113,7 +123,7 @@ const categories = [
               Communities
             </a>
 
-            <a class="nav-link" href="/#creators">
+            <a class="nav-link" href="/creators">
               Creators
             </a>
 
@@ -125,19 +135,39 @@ const categories = [
 
           <div class="flex items-center gap-3">
 
-            <a
-              href="#"
-              class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 sm:block"
-            >
-              Log In
-            </a>
+            {user ? (
+              <>
+                <a
+                  href="/dashboard"
+                  class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 transition hover:text-[#ffe8a6] sm:block"
+                >
+                  Dashboard
+                </a>
 
-            <a
-              href="/#join"
-              class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
-            >
-              Join Melagram
-            </a>
+                <a
+                  href="/profile"
+                  class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
+                >
+                  Profile
+                </a>
+              </>
+            ) : (
+              <>
+                <a
+                  href="/login"
+                  class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 transition hover:text-[#ffe8a6] sm:block"
+                >
+                  Log In
+                </a>
+
+                <a
+                  href="/join"
+                  class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
+                >
+                  Join Melagram
+                </a>
+              </>
+            )}
 
           </div>
 
@@ -337,10 +367,10 @@ const categories = [
             </p>
 
             <a
-              href="#"
+              href={user ? "/dashboard" : "/join"}
               class="cta mt-8 inline-flex rounded-xl px-8 py-4 text-sm font-bold uppercase tracking-wider text-white"
             >
-              Create a Community
+              {user ? "Back to Dashboard" : "Create a Community"}
             </a>
 
           </div>

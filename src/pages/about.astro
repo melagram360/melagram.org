@@ -1,5 +1,18 @@
 ---
-import "../../src/styles/global.css";
+import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+  env: Astro.locals.runtime.env,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+const isLoggedIn = !!user;
 ---
 
 <html lang="en">
@@ -20,6 +33,7 @@ import "../../src/styles/global.css";
     <!-- NAVIGATION -->
     <header class="border-b border-white/10 bg-black/80 backdrop-blur-md">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-10">
+
         <a href="/" class="flex items-center gap-3">
           <img
             src="/images/melagram-logo.jpg"
@@ -37,19 +51,41 @@ import "../../src/styles/global.css";
         </nav>
 
         <div class="flex items-center gap-3">
-          <a
-            href="/login"
-            class="hidden rounded-full border border-white/20 px-5 py-2.5 text-sm text-white/80 transition hover:border-[#d9ad55] hover:text-white sm:inline-flex"
-          >
-            Log In
-          </a>
 
-          <a
-            href="/join"
-            class="cta rounded-full px-5 py-2.5 text-sm font-semibold text-white"
-          >
-            Join Melagram
-          </a>
+          {isLoggedIn ? (
+            <>
+              <a
+                href="/dashboard"
+                class="hidden rounded-full border border-white/20 px-5 py-2.5 text-sm text-white/80 transition hover:border-[#d9ad55] hover:text-white sm:inline-flex"
+              >
+                Dashboard
+              </a>
+
+              <a
+                href="/profile"
+                class="cta rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+              >
+                Profile
+              </a>
+            </>
+          ) : (
+            <>
+              <a
+                href="/login"
+                class="hidden rounded-full border border-white/20 px-5 py-2.5 text-sm text-white/80 transition hover:border-[#d9ad55] hover:text-white sm:inline-flex"
+              >
+                Log In
+              </a>
+
+              <a
+                href="/join"
+                class="cta rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+              >
+                Join Melagram
+              </a>
+            </>
+          )}
+
         </div>
       </div>
     </header>
@@ -321,12 +357,21 @@ import "../../src/styles/global.css";
           </p>
 
           <div class="mt-9 flex flex-col justify-center gap-4 sm:flex-row">
-            <a
-              href="/join"
-              class="cta rounded-full px-8 py-3.5 text-sm font-semibold text-white"
-            >
-              Create Your Account
-            </a>
+            {isLoggedIn ? (
+              <a
+                href="/dashboard"
+                class="cta rounded-full px-8 py-3.5 text-sm font-semibold text-white"
+              >
+                Go to Dashboard
+              </a>
+            ) : (
+              <a
+                href="/join"
+                class="cta rounded-full px-8 py-3.5 text-sm font-semibold text-white"
+              >
+                Create Your Account
+              </a>
+            )}
 
             <a
               href="/discover"

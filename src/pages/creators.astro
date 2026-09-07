@@ -1,5 +1,16 @@
 ---
 import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+  env: Astro.locals.runtime.env,
+});
+
+const {
+  data: { user: currentUser },
+} = await supabase.auth.getUser();
 
 const creatorCategories = [
   {
@@ -121,21 +132,46 @@ const featuredCreators = [
 
           </div>
 
+          <!-- AUTH-AWARE NAVIGATION -->
           <div class="flex items-center gap-3">
 
-            <a
-              href="#"
-              class="hidden text-[10px] font-bold uppercase tracking-wider text-white/60 sm:block"
-            >
-              Log In
-            </a>
+            {currentUser ? (
+              <>
 
-            <a
-              href="/#join"
-              class="rounded-lg border border-[#d9ad55]/70 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black"
-            >
-              Join Melagram
-            </a>
+                <a
+                  href="/dashboard"
+                  class="hidden text-[10px] font-bold uppercase tracking-wider text-white/60 transition hover:text-[#ffe8a6] sm:block"
+                >
+                  Dashboard
+                </a>
+
+                <a
+                  href="/profile"
+                  class="rounded-lg border border-[#d9ad55]/70 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black"
+                >
+                  Profile
+                </a>
+
+              </>
+            ) : (
+              <>
+
+                <a
+                  href="/login"
+                  class="hidden text-[10px] font-bold uppercase tracking-wider text-white/60 transition hover:text-[#ffe8a6] sm:block"
+                >
+                  Log In
+                </a>
+
+                <a
+                  href="/join"
+                  class="rounded-lg border border-[#d9ad55]/70 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black"
+                >
+                  Join Melagram
+                </a>
+
+              </>
+            )}
 
           </div>
 
@@ -415,12 +451,21 @@ const featuredCreators = [
 
               </div>
 
-              <a
-                href="/#join"
-                class="rounded-xl border border-[#d9ad55] bg-gradient-to-b from-[#ffe8a6] to-[#c6973e] px-7 py-3 text-[10px] font-bold uppercase tracking-[.18em] text-black shadow-[0_8px_20px_rgba(0,0,0,.3)] transition hover:-translate-y-1"
-              >
-                Join Melagram
-              </a>
+              {currentUser ? (
+                <a
+                  href="/dashboard"
+                  class="rounded-xl border border-[#d9ad55] bg-gradient-to-b from-[#ffe8a6] to-[#c6973e] px-7 py-3 text-[10px] font-bold uppercase tracking-[.18em] text-black shadow-[0_8px_20px_rgba(0,0,0,.3)] transition hover:-translate-y-1"
+                >
+                  Go to Dashboard
+                </a>
+              ) : (
+                <a
+                  href="/join"
+                  class="rounded-xl border border-[#d9ad55] bg-gradient-to-b from-[#ffe8a6] to-[#c6973e] px-7 py-3 text-[10px] font-bold uppercase tracking-[.18em] text-black shadow-[0_8px_20px_rgba(0,0,0,.3)] transition hover:-translate-y-1"
+                >
+                  Join Melagram
+                </a>
+              )}
 
             </div>
 

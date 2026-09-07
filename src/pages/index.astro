@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import { createClient } from "../lib/supabase";
 
 const features = [
   {
@@ -27,6 +28,17 @@ const features = [
     href: "/dashboard",
   },
 ];
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+const isLoggedIn = !!user;
 ---
 
 <html lang="en">
@@ -102,19 +114,41 @@ const features = [
 
           <div class="flex items-center gap-3">
 
-            <a
-              href="/login"
-              class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 transition hover:text-[#ffe8a6] sm:block"
-            >
-              Log In
-            </a>
+            {
+              isLoggedIn ? (
+                <a
+                  href="/dashboard"
+                  class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 transition hover:text-[#ffe8a6] sm:block"
+                >
+                  Dashboard
+                </a>
+              ) : (
+                <a
+                  href="/login"
+                  class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 transition hover:text-[#ffe8a6] sm:block"
+                >
+                  Log In
+                </a>
+              )
+            }
 
-            <a
-              href="/login"
-              class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
-            >
-              Join Melagram
-            </a>
+            {
+              isLoggedIn ? (
+                <a
+                  href="/profile"
+                  class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
+                >
+                  Profile
+                </a>
+              ) : (
+                <a
+                  href="/join"
+                  class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
+                >
+                  Join Melagram
+                </a>
+              )
+            }
 
           </div>
 
@@ -188,7 +222,7 @@ const features = [
 
                   <!-- ENTER MELAGRAM -->
                   <a
-                    href="/login"
+                    href={isLoggedIn ? "/dashboard" : "/login"}
                     class="cta rounded-xl px-7 py-3.5 text-sm font-bold uppercase tracking-wider"
                   >
                     Enter Melagram
@@ -389,10 +423,10 @@ const features = [
 
             <!-- CREATE ACCOUNT -->
             <a
-              href="/login"
+              href={isLoggedIn ? "/dashboard" : "/join"}
               class="cta mt-8 inline-flex rounded-xl px-8 py-4 text-sm font-bold uppercase tracking-wider"
             >
-              Create Your Account
+              {isLoggedIn ? "Go to Dashboard" : "Create Your Account"}
             </a>
 
           </div>
