@@ -1,37 +1,109 @@
 ---
 import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+import { actions } from "astro:actions";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+const displayName =
+  user?.user_metadata?.full_name ||
+  user?.user_metadata?.username ||
+  user?.email?.split("@")[0] ||
+  "Member";
+
+const signOutResult =
+  Astro.getActionResult(actions.signOut);
+
+if (signOutResult?.data?.success) {
+  return Astro.redirect("/");
+}
+
+
+/* --------------------------------
+   NOTIFICATIONS
+--------------------------------- */
+
+let unreadNotificationCount = 0;
+
+if (user) {
+  const {
+    count,
+  } = await supabase
+    .from("notifications")
+    .select("id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("recipient_id", user.id)
+    .eq("is_read", false);
+
+  unreadNotificationCount =
+    count ?? 0;
+}
 ---
 
 <html lang="en">
+
   <head>
+
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
+
+    <meta
+      name="viewport"
+      content="width=device-width"
+    />
+
     <meta
       name="description"
       content="Melagram Privacy Policy — How Melagram collects, uses, and protects information."
     />
-    <title>Privacy Policy — Melagram</title>
+
+    <title>
+      Privacy Policy — Melagram
+    </title>
+
   </head>
 
-  <body>
-    <main class="min-h-screen overflow-hidden bg-[#050208] text-[#fff7e5]">
 
+  <body>
+
+    <main
+      class="min-h-screen overflow-hidden bg-[#050208] text-[#fff7e5]"
+    >
+
+      <!-- ================================================= -->
       <!-- TOP GOLD LINE -->
+      <!-- ================================================= -->
+
       <div
         class="h-1 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"
       ></div>
 
 
+      <!-- ================================================= -->
       <!-- BACKGROUND -->
-      <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <!-- ================================================= -->
+
+      <div
+        class="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+      >
 
         <div
           class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(109,25,201,.28),transparent_40rem)]"
         ></div>
 
+
         <div
           class="absolute -left-40 top-80 h-[500px] w-[500px] rounded-full bg-[#6d19c9]/10 blur-[120px]"
         ></div>
+
 
         <div
           class="absolute -right-40 top-[50rem] h-[600px] w-[600px] rounded-full bg-[#8b22d9]/10 blur-[140px]"
@@ -40,7 +112,10 @@ import "../styles/global.css";
       </div>
 
 
-      <!-- NAV -->
+      <!-- ================================================= -->
+      <!-- NAVIGATION -->
+      <!-- ================================================= -->
+
       <nav
         class="border-b border-[#d9ad55]/20 bg-[#07030d]/85 backdrop-blur-xl"
       >
@@ -49,13 +124,19 @@ import "../styles/global.css";
           class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8"
         >
 
-          <a href="/" class="flex items-center gap-3">
+          <!-- LOGO -->
+
+          <a
+            href={user ? "/dashboard" : "/"}
+            class="flex items-center gap-3"
+          >
 
             <div
               class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#1a0827] text-[#ffe8a6] shadow-[0_0_22px_rgba(109,25,201,.35)]"
             >
               M
             </div>
+
 
             <div class="hidden sm:block">
 
@@ -64,6 +145,7 @@ import "../styles/global.css";
               >
                 MELAGRAM
               </div>
+
 
               <div
                 class="text-[8px] uppercase tracking-[.25em] text-white/35"
@@ -76,63 +158,194 @@ import "../styles/global.css";
           </a>
 
 
+          <!-- DESKTOP NAV -->
+
           <div
             class="hidden items-center gap-7 text-[10px] font-semibold uppercase tracking-[.2em] text-white/60 lg:flex"
           >
 
-            <a
-              class="transition hover:text-[#ffe8a6]"
-              href="/"
-            >
-              Home
-            </a>
+            {user ? (
 
-            <a
-              class="transition hover:text-[#ffe8a6]"
-              href="/discover"
-            >
-              Discover
-            </a>
+              <>
 
-            <a
-              class="transition hover:text-[#ffe8a6]"
-              href="/communities"
-            >
-              Communities
-            </a>
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/dashboard"
+                >
+                  Dashboard
+                </a>
 
-            <a
-              class="transition hover:text-[#ffe8a6]"
-              href="/creators"
-            >
-              Creators
-            </a>
 
-            <a
-              class="transition hover:text-[#ffe8a6]"
-              href="/about"
-            >
-              About
-            </a>
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/discover"
+                >
+                  Discover
+                </a>
+
+
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/communities"
+                >
+                  Communities
+                </a>
+
+
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/creators"
+                >
+                  Creators
+                </a>
+
+
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/about"
+                >
+                  About
+                </a>
+
+              </>
+
+            ) : (
+
+              <>
+
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/"
+                >
+                  Home
+                </a>
+
+
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/discover"
+                >
+                  Discover
+                </a>
+
+
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/communities"
+                >
+                  Communities
+                </a>
+
+
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/creators"
+                >
+                  Creators
+                </a>
+
+
+                <a
+                  class="transition hover:text-[#ffe8a6]"
+                  href="/about"
+                >
+                  About
+                </a>
+
+              </>
+
+            )}
 
           </div>
 
 
-          <div class="flex items-center gap-3">
+          <!-- ACCOUNT AREA -->
 
-            <a
-              href="/login"
-              class="rounded-full border border-[#d9ad55]/50 px-4 py-2 text-[9px] font-bold uppercase tracking-[.18em] text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
-            >
-              Log In
-            </a>
+          <div
+            class="flex items-center gap-2 sm:gap-3"
+          >
 
-            <a
-              href="/login"
-              class="hidden rounded-full bg-[#6d19c9] px-5 py-2 text-[9px] font-bold uppercase tracking-[.18em] text-white transition hover:bg-[#7e25df] sm:inline-flex"
-            >
-              Join Melagram
-            </a>
+            {user ? (
+
+              <>
+
+                <!-- NOTIFICATIONS -->
+
+                <a
+                  href="/notifications"
+                  aria-label="Notifications"
+                  class="relative inline-flex items-center justify-center rounded-full border border-[#d9ad55]/50 px-3 py-2 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+                >
+
+                  <span aria-hidden="true">
+                    🔔
+                  </span>
+
+
+                  <span class="ml-1 hidden sm:inline">
+                    Notifications
+                  </span>
+
+
+                  {unreadNotificationCount > 0 && (
+
+                    <span
+                      class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6d19c9] px-1 text-[10px] font-bold text-white ring-2 ring-black"
+                    >
+                      {unreadNotificationCount > 99
+                        ? "99+"
+                        : unreadNotificationCount}
+                    </span>
+
+                  )}
+
+                </a>
+
+
+                <!-- PROFILE -->
+
+                <a
+                  href="/profile"
+                  class="rounded-full border border-[#d9ad55]/50 px-4 py-2 text-[10px] font-bold uppercase tracking-[.12em] text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+                >
+                  {displayName}
+                </a>
+
+
+                <!-- SIGN OUT -->
+
+                <button
+                  id="signout-btn"
+                  type="button"
+                  class="rounded-full border border-white/15 px-4 py-2 text-[10px] font-bold uppercase tracking-[.12em] text-white/60 transition hover:border-[#d9ad55]/50 hover:text-[#ffe8a6]"
+                >
+                  Sign Out
+                </button>
+
+              </>
+
+            ) : (
+
+              <>
+
+                <a
+                  href="/login"
+                  class="rounded-full border border-[#d9ad55]/50 px-4 py-2 text-[9px] font-bold uppercase tracking-[.18em] text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+                >
+                  Log In
+                </a>
+
+
+                <a
+                  href="/login"
+                  class="hidden rounded-full bg-[#6d19c9] px-5 py-2 text-[9px] font-bold uppercase tracking-[.18em] text-white transition hover:bg-[#7e25df] sm:inline-flex"
+                >
+                  Join Melagram
+                </a>
+
+              </>
+
+            )}
 
           </div>
 
@@ -141,16 +354,24 @@ import "../styles/global.css";
       </nav>
 
 
+      <!-- ================================================= -->
       <!-- PAGE HEADER -->
-      <section class="px-5 pb-10 pt-14 sm:px-8 lg:pb-14 lg:pt-20">
+      <!-- ================================================= -->
 
-        <div class="mx-auto max-w-5xl text-center">
+      <section
+        class="px-5 pb-10 pt-14 sm:px-8 lg:pb-14 lg:pt-20"
+      >
+
+        <div
+          class="mx-auto max-w-5xl text-center"
+        >
 
           <p
             class="text-[9px] font-bold uppercase tracking-[.45em] text-[#d9ad55]"
           >
             Melagram Legal
           </p>
+
 
           <h1
             class="display mt-4 text-4xl text-[#ffe8a6] sm:text-6xl"
@@ -159,13 +380,17 @@ import "../styles/global.css";
           </h1>
 
 
-          <div class="mx-auto my-7 flex max-w-xl items-center gap-4">
+          <div
+            class="mx-auto my-7 flex max-w-xl items-center gap-4"
+          >
 
             <div class="gold-line flex-1"></div>
+
 
             <span class="text-lg text-[#ffe8a6]">
               ✦
             </span>
+
 
             <div class="gold-line flex-1"></div>
 
@@ -192,14 +417,20 @@ import "../styles/global.css";
       </section>
 
 
+      <!-- ================================================= -->
       <!-- PRIVACY CONTENT -->
-      <section class="px-5 pb-20 sm:px-8">
+      <!-- ================================================= -->
+
+      <section
+        class="px-5 pb-20 sm:px-8"
+      >
 
         <div
           class="gold-border luxury-panel mx-auto max-w-5xl rounded-[2rem] p-7 sm:p-10 lg:p-14"
         >
 
           <!-- INTRO -->
+
           <section>
 
             <p
@@ -208,17 +439,26 @@ import "../styles/global.css";
               Your Privacy
             </p>
 
-            <h2 class="display mt-3 text-3xl text-[#ffe8a6]">
+
+            <h2
+              class="display mt-3 text-3xl text-[#ffe8a6]"
+            >
               Your Information Matters
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Melagram is built around people, communities, creativity, and
               connection. Protecting the information associated with your
               account is an important part of operating the platform.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               This Privacy Policy describes the types of information that may
               be collected when you use Melagram and how that information may
               be used to provide, maintain, secure, and improve the platform.
@@ -231,100 +471,163 @@ import "../styles/global.css";
 
 
           <!-- 1 -->
+
           <section>
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               1. Information You Provide
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               When you create and use a Melagram account, you may provide
               information such as:
             </p>
 
-            <ul class="mt-5 space-y-3 text-sm leading-7 text-white/60">
+
+            <ul
+              class="mt-5 space-y-3 text-sm leading-7 text-white/60"
+            >
+
               <li>• Your name or display name.</li>
+
               <li>• Your Melagram username.</li>
+
               <li>• Your email address.</li>
+
               <li>• Your profile biography.</li>
+
               <li>• Your profile photo or avatar.</li>
+
               <li>• Posts, comments, and other content you choose to share.</li>
+
             </ul>
 
           </section>
 
 
           <!-- 2 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               2. Information Created Through Your Activity
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               When you use Melagram's social features, the platform may store
               information associated with those interactions.
             </p>
 
-            <ul class="mt-5 space-y-3 text-sm leading-7 text-white/60">
+
+            <ul
+              class="mt-5 space-y-3 text-sm leading-7 text-white/60"
+            >
+
               <li>• Posts you create.</li>
+
               <li>• Comments you submit.</li>
+
               <li>• Posts you like.</li>
+
               <li>• Members you follow.</li>
+
               <li>• Members who follow you.</li>
+
               <li>• Community posts and interactions.</li>
+
               <li>• Notifications associated with your account.</li>
+
             </ul>
 
           </section>
 
 
           <!-- 3 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               3. How We Use Information
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Information associated with your Melagram account may be used to:
             </p>
 
-            <ul class="mt-5 space-y-3 text-sm leading-7 text-white/60">
+
+            <ul
+              class="mt-5 space-y-3 text-sm leading-7 text-white/60"
+            >
+
               <li>• Create and maintain your account.</li>
+
               <li>• Authenticate you and protect account access.</li>
+
               <li>• Display your profile and content to other members according to platform functionality.</li>
+
               <li>• Provide posts, comments, follows, notifications, and community features.</li>
+
               <li>• Improve the performance and functionality of Melagram.</li>
+
               <li>• Detect, prevent, and investigate abuse, fraud, or security issues.</li>
+
               <li>• Communicate with you about your account or the platform.</li>
+
               <li>• Comply with applicable legal obligations.</li>
+
             </ul>
 
           </section>
 
 
           <!-- 4 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               4. Public Profile and User Content
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Melagram is a social platform. Information and content that you
               intentionally make public may be visible to other members or,
               depending on platform functionality, to visitors who are not
               signed in.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               This may include your display name, username, profile photo, bio,
               posts, comments, community activity, and other information you
               choose to share publicly.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Do not post sensitive personal information that you do not want
               other people to see.
             </p>
@@ -333,19 +636,28 @@ import "../styles/global.css";
 
 
           <!-- 5 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               5. Authentication and Account Security
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Melagram uses third-party infrastructure and authentication
               services to help provide secure account access and platform
               functionality.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               You are responsible for protecting your login credentials and
               should notify Melagram if you believe your account has been
               compromised.
@@ -355,20 +667,29 @@ import "../styles/global.css";
 
 
           <!-- 6 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               6. Cookies and Technical Information
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Melagram and its service providers may use cookies, session
               information, or similar technical mechanisms when necessary to
               authenticate users, maintain sessions, protect the platform, and
               provide core functionality.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Your browser or device may also provide technical information
               such as browser type, device information, IP address, or related
               diagnostic information when you interact with online services.
@@ -378,20 +699,29 @@ import "../styles/global.css";
 
 
           <!-- 7 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               7. Third-Party Services
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Melagram may use third-party providers for services such as
               authentication, database infrastructure, hosting, storage,
               security, communications, analytics, or other technical
               functions.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               These providers may process information as necessary to provide
               their services. Third-party services may also maintain their own
               privacy policies and terms.
@@ -401,26 +731,38 @@ import "../styles/global.css";
 
 
           <!-- 8 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               8. When Information May Be Shared
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Melagram may share or disclose information when reasonably
               necessary to operate the platform, provide requested services,
               protect members, or comply with legal obligations.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               This may include sharing information with service providers that
               help operate Melagram, responding to valid legal requests, or
               taking action to prevent fraud, abuse, security threats, or other
               harmful activity.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Melagram does not treat your private account information as
               public simply because you have an account. Content you
               intentionally publish publicly may, however, be visible to other
@@ -431,20 +773,29 @@ import "../styles/global.css";
 
 
           <!-- 9 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               9. Data Retention
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               We may retain information for as long as reasonably necessary to
               provide Melagram, maintain account and platform functionality,
               resolve disputes, enforce agreements, maintain security, or
               satisfy legal and operational requirements.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Retention periods may vary depending on the type of information
               and the reason it is retained.
             </p>
@@ -453,18 +804,27 @@ import "../styles/global.css";
 
 
           <!-- 10 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               10. Data Security
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               We take reasonable measures designed to protect information
               associated with Melagram accounts and the platform.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               However, no online service or method of electronic transmission
               can be guaranteed to be completely secure.
             </p>
@@ -473,19 +833,28 @@ import "../styles/global.css";
 
 
           <!-- 11 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               11. Your Choices
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Depending on the features available on Melagram, you may be able
               to update or correct certain account information through your
               profile or account settings.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               You may also choose what information and content you publish on
               your profile and through your posts and interactions.
             </p>
@@ -494,20 +863,29 @@ import "../styles/global.css";
 
 
           <!-- 12 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               12. Account Deletion and Requests
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               If you want to request account deletion, correction of your
               information, or assistance with a privacy-related matter, you
               may contact Melagram through the contact information made
               available on the platform.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Certain information may need to be retained where required or
               permitted by applicable law or where reasonably necessary for
               legitimate operational, security, or legal purposes.
@@ -517,18 +895,27 @@ import "../styles/global.css";
 
 
           <!-- 13 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               13. Children's Privacy
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Melagram is not intended for children who are below the minimum
               age required to use the service under applicable law.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               If we become aware that information has been collected from a
               child in circumstances where it should not have been collected,
               we may take appropriate steps to address the situation.
@@ -538,19 +925,28 @@ import "../styles/global.css";
 
 
           <!-- 14 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               14. International Users
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Melagram may be accessed by users in different locations.
               Depending on where you live, privacy laws may provide you with
               specific rights regarding your personal information.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               We intend to provide appropriate mechanisms for exercising
               applicable privacy rights as the platform develops and as
               required by law.
@@ -560,18 +956,27 @@ import "../styles/global.css";
 
 
           <!-- 15 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               15. Changes to This Privacy Policy
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               We may update this Privacy Policy as Melagram grows, new
               features are introduced, or legal requirements change.
             </p>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               When material changes are made, we may provide notice through
               Melagram or by other reasonable means.
             </p>
@@ -580,13 +985,19 @@ import "../styles/global.css";
 
 
           <!-- 16 -->
+
           <section class="mt-10">
 
-            <h2 class="display text-2xl text-[#ffe8a6] sm:text-3xl">
+            <h2
+              class="display text-2xl text-[#ffe8a6] sm:text-3xl"
+            >
               16. Contact
             </h2>
 
-            <p class="mt-5 text-sm leading-8 text-white/60">
+
+            <p
+              class="mt-5 text-sm leading-8 text-white/60"
+            >
               Questions, requests, or concerns regarding this Privacy Policy
               may be directed to Melagram through the contact information made
               available on the platform.
@@ -596,6 +1007,7 @@ import "../styles/global.css";
 
 
           <!-- FINAL -->
+
           <div
             class="mt-12 rounded-2xl border border-[#d9ad55]/20 bg-[#08030d]/70 p-6 text-center"
           >
@@ -606,11 +1018,13 @@ import "../styles/global.css";
               Melagram
             </p>
 
+
             <p
               class="display mt-3 text-2xl text-[#ffe8a6]"
             >
               Your Community. Your Voice. Your Space.
             </p>
+
 
             <p
               class="mx-auto mt-3 max-w-xl text-sm leading-7 text-white/40"
@@ -626,22 +1040,31 @@ import "../styles/global.css";
       </section>
 
 
+      <!-- ================================================= -->
       <!-- FOOTER -->
+      <!-- ================================================= -->
+
       <footer
         class="border-t border-[#d9ad55]/15 bg-[#07030d]/80 px-5 py-12 sm:px-8"
       >
 
-        <div class="mx-auto max-w-5xl text-center">
+        <div
+          class="mx-auto max-w-5xl text-center"
+        >
 
-          <div class="display text-5xl text-[#ffe8a6]">
+          <div
+            class="display text-5xl text-[#ffe8a6]"
+          >
             M
           </div>
+
 
           <p
             class="display mt-3 text-xl tracking-[.15em] text-[#ffe8a6]"
           >
             MELAGRAM
           </p>
+
 
           <p
             class="mt-2 text-[9px] uppercase tracking-[.25em] text-white/30"
@@ -655,11 +1078,12 @@ import "../styles/global.css";
           >
 
             <a
-              href="/"
+              href={user ? "/dashboard" : "/"}
               class="transition hover:text-[#ffe8a6]"
             >
-              Home
+              {user ? "Dashboard" : "Home"}
             </a>
+
 
             <a
               href="/about"
@@ -668,12 +1092,14 @@ import "../styles/global.css";
               About
             </a>
 
+
             <a
               href="/terms"
               class="transition hover:text-[#ffe8a6]"
             >
               Terms
             </a>
+
 
             <a
               href="/privacy"
@@ -682,17 +1108,33 @@ import "../styles/global.css";
               Privacy
             </a>
 
-            <a
-              href="/login"
-              class="transition hover:text-[#ffe8a6]"
-            >
-              Join Melagram
-            </a>
+
+            {user ? (
+
+              <a
+                href="/profile"
+                class="transition hover:text-[#ffe8a6]"
+              >
+                Profile
+              </a>
+
+            ) : (
+
+              <a
+                href="/login"
+                class="transition hover:text-[#ffe8a6]"
+              >
+                Join Melagram
+              </a>
+
+            )}
 
           </div>
 
 
-          <p class="mt-8 text-[10px] text-white/25">
+          <p
+            class="mt-8 text-[10px] text-white/25"
+          >
             © 2026 Melagram. All rights reserved.
           </p>
 
@@ -701,11 +1143,81 @@ import "../styles/global.css";
       </footer>
 
 
+      <!-- ================================================= -->
       <!-- BOTTOM GOLD LINE -->
+      <!-- ================================================= -->
+
       <div
         class="h-1 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"
       ></div>
 
     </main>
+
+
+    <!-- ================================================= -->
+    <!-- SIGN OUT -->
+    <!-- ================================================= -->
+
+    {user && (
+
+      <script>
+
+        import { actions } from "astro:actions";
+
+
+        const signOutButton =
+          document.getElementById(
+            "signout-btn"
+          ) as HTMLButtonElement | null;
+
+
+        signOutButton?.addEventListener(
+          "click",
+          async () => {
+
+            signOutButton.disabled =
+              true;
+
+            signOutButton.textContent =
+              "Signing Out...";
+
+
+            const {
+              data,
+              error,
+            } =
+              await actions.signOut();
+
+
+            if (
+              error ||
+              !data?.success
+            ) {
+
+              signOutButton.disabled =
+                false;
+
+              signOutButton.textContent =
+                "Sign Out";
+
+              alert(
+                "We couldn't sign you out. Please try again."
+              );
+
+              return;
+            }
+
+
+            window.location.href =
+              "/";
+
+          }
+        );
+
+      </script>
+
+    )}
+
   </body>
+
 </html>
