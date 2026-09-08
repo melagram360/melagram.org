@@ -146,7 +146,7 @@ const {
 } = await supabase
   .from("posts")
   .select(
-    "id, user_id, content, created_at, community_slug"
+    "id, user_id, content, image_url, created_at, community_slug"
   )
   .eq("community_slug", slug)
   .order("created_at", {
@@ -699,6 +699,13 @@ if (!postsError && posts && posts.length > 0) {
                   class="mt-7 rounded-2xl border border-[#d9ad55]/20 bg-black/20 p-5"
                 >
 
+                  <input
+                    type="hidden"
+                    name="communitySlug"
+                    value={slug}
+                  />
+
+
                   <div
                     class="mb-3 flex items-center gap-2"
                   >
@@ -724,8 +731,56 @@ if (!postsError && posts && posts.length > 0) {
 
 
                   <div
-                    class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                    id="community-image-preview"
+                    class="mt-4 hidden overflow-hidden rounded-2xl border border-[#d9ad55]/20 bg-black/20"
                   >
+
+                    <img
+                      id="community-image-preview-img"
+                      src=""
+                      alt="Selected community post image preview"
+                      class="max-h-[420px] w-full object-contain"
+                    />
+
+                  </div>
+
+
+                  <div
+                    class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+
+                    <div class="flex flex-wrap items-center gap-3">
+
+                      <label
+                        for="community-post-image"
+                        class="inline-flex cursor-pointer items-center rounded-full border border-[#d9ad55]/40 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[.16em] text-[#ffe8a6] transition hover:border-[#d9ad55] hover:bg-[#d9ad55]/10"
+                      >
+                        Add Photo
+                      </label>
+
+                      <input
+                        id="community-post-image"
+                        name="image"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        class="hidden"
+                      />
+
+                      <button
+                        type="button"
+                        id="community-image-remove"
+                        class="hidden rounded-full border border-red-400/30 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[.16em] text-red-200/70 transition hover:border-red-300/60 hover:bg-red-950/30 hover:text-red-100"
+                      >
+                        Remove Photo
+                      </button>
+
+                      <span
+                        id="community-image-name"
+                        class="hidden max-w-[240px] truncate text-[10px] text-white/35"
+                      ></span>
+
+                    </div>
+
 
                     <span
                       class="text-[10px] uppercase tracking-wider text-white/25"
@@ -733,6 +788,12 @@ if (!postsError && posts && posts.length > 0) {
                       2,000 characters maximum
                     </span>
 
+                  </div>
+
+
+                  <div
+                    class="mt-4 flex justify-end"
+                  >
 
                     <button
                       type="submit"
@@ -959,6 +1020,19 @@ if (!postsError && posts && posts.length > 0) {
                             >
                               {post.content}
                             </p>
+
+                            {post.image_url && (
+
+                              <div class="mt-5 overflow-hidden rounded-2xl border border-[#d9ad55]/20 bg-black/20">
+                                <img
+                                  src={post.image_url}
+                                  alt="Image shared in this post"
+                                  class="max-h-[650px] w-full object-contain"
+                                  loading="lazy"
+                                />
+                              </div>
+
+                            )}
 
                           </div>
 
@@ -1510,6 +1584,159 @@ if (!postsError && posts && posts.length > 0) {
 
 
       /* --------------------------------
+         COMMUNITY POST IMAGE PICKER
+      --------------------------------- */
+
+      const communityImageInput =
+        document.getElementById(
+          "community-post-image"
+        ) as HTMLInputElement | null;
+
+      const communityImagePreview =
+        document.getElementById(
+          "community-image-preview"
+        );
+
+      const communityImagePreviewImg =
+        document.getElementById(
+          "community-image-preview-img"
+        ) as HTMLImageElement | null;
+
+      const communityImageRemove =
+        document.getElementById(
+          "community-image-remove"
+        ) as HTMLButtonElement | null;
+
+      const communityImageName =
+        document.getElementById(
+          "community-image-name"
+        );
+
+      let communityImageUrl =
+        "";
+
+      const clearCommunityImage =
+        () => {
+
+          if (communityImageUrl) {
+            URL.revokeObjectURL(
+              communityImageUrl
+            );
+
+            communityImageUrl =
+              "";
+          }
+
+          if (communityImageInput) {
+            communityImageInput.value =
+              "";
+          }
+
+          communityImagePreview?.classList.add(
+            "hidden"
+          );
+
+          communityImageRemove?.classList.add(
+            "hidden"
+          );
+
+          communityImageName?.classList.add(
+            "hidden"
+          );
+
+          if (communityImagePreviewImg) {
+            communityImagePreviewImg.src =
+              "";
+          }
+
+          if (communityImageName) {
+            communityImageName.textContent =
+              "";
+          }
+
+        };
+
+      communityImageInput?.addEventListener(
+        "change",
+        () => {
+
+          const file =
+            communityImageInput.files?.[0];
+
+          if (!file) {
+            clearCommunityImage();
+            return;
+          }
+
+          const allowedTypes = [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+          ];
+
+          if (!allowedTypes.includes(file.type)) {
+            alert(
+              "Please choose a JPG, PNG, WEBP, or GIF image."
+            );
+
+            clearCommunityImage();
+            return;
+          }
+
+          if (
+            file.size >
+            10 * 1024 * 1024
+          ) {
+            alert(
+              "Community post images must be 10MB or smaller."
+            );
+
+            clearCommunityImage();
+            return;
+          }
+
+          if (communityImageUrl) {
+            URL.revokeObjectURL(
+              communityImageUrl
+            );
+          }
+
+          communityImageUrl =
+            URL.createObjectURL(file);
+
+          if (communityImagePreviewImg) {
+            communityImagePreviewImg.src =
+              communityImageUrl;
+          }
+
+          communityImagePreview?.classList.remove(
+            "hidden"
+          );
+
+          communityImageRemove?.classList.remove(
+            "hidden"
+          );
+
+          communityImageName?.classList.remove(
+            "hidden"
+          );
+
+          if (communityImageName) {
+            communityImageName.textContent =
+              file.name;
+          }
+
+        }
+      );
+
+      communityImageRemove?.addEventListener(
+        "click",
+        clearCommunityImage
+      );
+
+
+      /* --------------------------------
          CREATE COMMUNITY POST
       --------------------------------- */
 
@@ -1563,18 +1790,23 @@ if (!postsError && posts && posts.length > 0) {
             message.classList.add(
               "hidden"
             );
+
+            message.classList.remove(
+              "text-red-300"
+            );
           }
+
+          const formData =
+            new FormData(
+              communityPostForm
+            );
 
           const {
             data,
             error,
           } =
             await actions.createCommunityPost(
-              {
-                communitySlug:
-                  "{slug}",
-                content,
-              }
+              formData
             );
 
           if (

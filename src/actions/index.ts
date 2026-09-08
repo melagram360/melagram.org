@@ -585,6 +585,10 @@ export const server = {
           2000,
           "Your post must be 2,000 characters or fewer."
         ),
+
+      image: z
+        .instanceof(File)
+        .optional(),
     }),
 
     handler: async (input, context) => {
@@ -610,15 +614,102 @@ export const server = {
         const content =
           input.content.trim();
 
+        const image = input.image;
+
+        let imageUrl: string | null = null;
+        let imagePath: string | null = null;
+
+        if (image && image.size > 0) {
+          const allowedTypes = [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+          ];
+
+          if (!allowedTypes.includes(image.type)) {
+            return {
+              success: false,
+              message:
+                "Please upload a JPG, PNG, WEBP, or GIF image.",
+            };
+          }
+
+          const maxSize =
+            10 * 1024 * 1024;
+
+          if (image.size > maxSize) {
+            return {
+              success: false,
+              message:
+                "Post images must be 10MB or smaller.",
+            };
+          }
+
+          const extension =
+            image.type === "image/png"
+              ? "png"
+              : image.type === "image/webp"
+                ? "webp"
+                : image.type === "image/gif"
+                  ? "gif"
+                  : "jpg";
+
+          imagePath =
+            `${user.id}/${crypto.randomUUID()}.${extension}`;
+
+          const {
+            error: uploadError,
+          } = await supabase.storage
+            .from("post-images")
+            .upload(
+              imagePath,
+              image,
+              {
+                contentType: image.type,
+                upsert: false,
+              }
+            );
+
+          if (uploadError) {
+            console.error(
+              "Post image upload error:",
+              uploadError
+            );
+
+            return {
+              success: false,
+              message:
+                `Image upload error: ${uploadError.message}`,
+            };
+          }
+
+          const {
+            data: { publicUrl },
+          } =
+            supabase.storage
+              .from("post-images")
+              .getPublicUrl(imagePath);
+
+          imageUrl = publicUrl;
+        }
+
         const { error } =
           await supabase
             .from("posts")
             .insert({
               user_id: user.id,
               content,
+              image_url: imageUrl,
             });
 
         if (error) {
+          if (imagePath) {
+            await supabase.storage
+              .from("post-images")
+              .remove([imagePath]);
+          }
+
           console.error(
             "Create post error:",
             error
@@ -646,6 +737,137 @@ export const server = {
           success: false,
           message:
             "Something went wrong while publishing your post.",
+        };
+      }
+    },
+  }),
+
+  /* ========================================
+     DELETE POST
+  ======================================== */
+
+  deletePost: defineAction({
+    accept: "json",
+
+    input: z.object({
+      postId: z.string().uuid(),
+    }),
+
+    handler: async (input, context) => {
+      try {
+        const supabase = createClient({
+          request: context.request,
+          cookies: context.cookies,
+          env: context.locals.runtime.env,
+        });
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          return {
+            success: false,
+            message:
+              "You must be signed in to delete posts.",
+          };
+        }
+
+        const {
+          data: post,
+          error: postLookupError,
+        } = await supabase
+          .from("posts")
+          .select("id, user_id, image_url")
+          .eq("id", input.postId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (postLookupError) {
+          console.error(
+            "Delete post lookup error:",
+            postLookupError
+          );
+
+          return {
+            success: false,
+            message:
+              "We couldn't find that post. Please try again.",
+          };
+        }
+
+        if (!post) {
+          return {
+            success: false,
+            message:
+              "You can only delete your own posts.",
+          };
+        }
+
+        const { error: deleteError } =
+          await supabase
+            .from("posts")
+            .delete()
+            .eq("id", post.id)
+            .eq("user_id", user.id);
+
+        if (deleteError) {
+          console.error(
+            "Delete post error:",
+            deleteError
+          );
+
+          return {
+            success: false,
+            message:
+              "We couldn't delete your post. Please try again.",
+          };
+        }
+
+        if (post.image_url) {
+          const marker =
+            "/storage/v1/object/public/post-images/";
+
+          const markerIndex =
+            post.image_url.indexOf(marker);
+
+          if (markerIndex !== -1) {
+            const imagePath = decodeURIComponent(
+              post.image_url.slice(
+                markerIndex + marker.length
+              )
+            );
+
+            const {
+              error: imageDeleteError,
+            } = await supabase.storage
+              .from("post-images")
+              .remove([imagePath]);
+
+            if (imageDeleteError) {
+              console.error(
+                "Post image cleanup error:",
+                imageDeleteError
+              );
+            }
+          }
+        }
+
+        return {
+          success: true,
+          message:
+            "Your post has been deleted.",
+        };
+      } catch (error) {
+        console.error(
+          "Delete post error:",
+          error
+        );
+
+        return {
+          success: false,
+          message:
+            "Something went wrong while deleting your post.",
         };
       }
     },
@@ -881,7 +1103,7 @@ export const server = {
   ======================================== */
 
   createCommunityPost: defineAction({
-    accept: "json",
+    accept: "form",
 
     input: z.object({
       communitySlug: z
@@ -907,6 +1129,10 @@ export const server = {
           2000,
           "Your post must be 2,000 characters or fewer."
         ),
+
+      image: z
+        .instanceof(File)
+        .optional(),
     }),
 
     handler: async (input, context) => {
@@ -935,17 +1161,103 @@ export const server = {
         const content =
           input.content.trim();
 
+        const image = input.image;
+
+        let imageUrl: string | null = null;
+        let imagePath: string | null = null;
+
+        if (image && image.size > 0) {
+          const allowedTypes = [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+          ];
+
+          if (!allowedTypes.includes(image.type)) {
+            return {
+              success: false,
+              message:
+                "Please upload a JPG, PNG, WEBP, or GIF image.",
+            };
+          }
+
+          const maxSize =
+            10 * 1024 * 1024;
+
+          if (image.size > maxSize) {
+            return {
+              success: false,
+              message:
+                "Community post images must be 10MB or smaller.",
+            };
+          }
+
+          const extension =
+            image.type === "image/png"
+              ? "png"
+              : image.type === "image/webp"
+                ? "webp"
+                : image.type === "image/gif"
+                  ? "gif"
+                  : "jpg";
+
+          imagePath =
+            `${user.id}/community-${crypto.randomUUID()}.${extension}`;
+
+          const {
+            error: uploadError,
+          } = await supabase.storage
+            .from("post-images")
+            .upload(
+              imagePath,
+              image,
+              {
+                contentType: image.type,
+                upsert: false,
+              }
+            );
+
+          if (uploadError) {
+            console.error(
+              "Community post image upload error:",
+              uploadError
+            );
+
+            return {
+              success: false,
+              message:
+                `Image upload error: ${uploadError.message}`,
+            };
+          }
+
+          const {
+            data: { publicUrl },
+          } =
+            supabase.storage
+              .from("post-images")
+              .getPublicUrl(imagePath);
+
+          imageUrl = publicUrl;
+        }
+
         const { error } =
           await supabase
             .from("posts")
             .insert({
               user_id: user.id,
               content,
-              community_slug:
-                communitySlug,
+              community_slug: communitySlug,
+              image_url: imageUrl,
             });
 
         if (error) {
+          if (imagePath) {
+            await supabase.storage
+              .from("post-images")
+              .remove([imagePath]);
+          }
+
           console.error(
             "Create community post error:",
             error
@@ -1289,3 +1601,4 @@ export const server = {
   }),
 
 };
+
