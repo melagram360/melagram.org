@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import { createClient } from "../lib/supabase";
 import { actions } from "astro:actions";
+import LinkPreview from "../components/LinkPreview.astro";
 
 const supabase = createClient({
   request: Astro.request,
@@ -88,7 +89,7 @@ if (
   const result = await supabase
     .from("posts")
     .select(
-      "id, user_id, content, image_url, created_at, community_slug"
+      "id, user_id, content, image_url, created_at, community_slug, link_url, link_type, link_title, link_description, link_image_url"
     )
     .in("user_id", feedUserIds)
     .order("created_at", {
@@ -139,10 +140,6 @@ if (
      LIKES
   --------------------------------- */
 
-  const postIds = posts.map(
-    (post) => post.id
-  );
-
   const {
     data: likes,
     error: likesError,
@@ -151,7 +148,7 @@ if (
     .select(
       "post_id, user_id"
     )
-    .in("post_id", postIds);
+    .in("post_id", posts.map((post) => post.id));
 
   const likeCountMap = new Map();
 
@@ -197,7 +194,10 @@ if (
     .select(
       "id, post_id, user_id, content, created_at"
     )
-    .in("post_id", postIds)
+    .in(
+      "post_id",
+      posts.map((post) => post.id)
+    )
     .order("created_at", {
       ascending: true,
     });
@@ -920,11 +920,15 @@ if (
 
 
                           <p
-                            class="whitespace-pre-wrap text-[15px] leading-7 text-white/80"
+                            class="whitespace-pre-wrap break-words text-[15px] leading-7 text-white/80"
                           >
                             {post.content}
                           </p>
 
+
+                          <!-- ================================= -->
+                          <!-- IMAGE -->
+                          <!-- ================================= -->
 
                           {post.image_url && (
 
@@ -940,6 +944,24 @@ if (
                               />
 
                             </div>
+
+                          )}
+
+
+                          <!-- ================================= -->
+                          <!-- RICH LINK PREVIEW -->
+                          <!-- ================================= -->
+
+                          {post.link_url &&
+                            post.link_type && (
+
+                            <LinkPreview
+                              linkUrl={post.link_url}
+                              linkType={post.link_type}
+                              linkTitle={post.link_title}
+                              linkDescription={post.link_description}
+                              linkImageUrl={post.link_image_url}
+                            />
 
                           )}
 

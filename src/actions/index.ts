@@ -2,6 +2,932 @@ import { defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { createClient } from "../lib/supabase";
 
+/* ========================================
+   LINK PREVIEW HELPERS
+======================================== */
+
+type LinkPreview = {
+  linkUrl: string | null;
+  linkType: string | null;
+  linkTitle: string | null;
+  linkDescription: string | null;
+  linkImageUrl: string | null;
+};
+
+function emptyLinkPreview(): LinkPreview {
+  return {
+    linkUrl: null,
+    linkType: null,
+    linkTitle: null,
+    linkDescription: null,
+    linkImageUrl: null,
+  };
+}
+
+function decodeHtmlEntities(value: string): string {
+  let decoded = value;
+
+  const namedEntities: Record<string, string> = {
+    "&amp;": "&",
+    "&quot;": '"',
+    "&apos;": "'",
+    "&#39;": "'",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&nbsp;": " ",
+    "&ndash;": "–",
+    "&mdash;": "—",
+    "&lsquo;": "‘",
+    "&rsquo;": "’",
+    "&ldquo;": "“",
+    "&rdquo;": "”",
+    "&hellip;": "…",
+    "&copy;": "©",
+    "&reg;": "®",
+    "&trade;": "™",
+    "&bull;": "•",
+    "&middot;": "·",
+    "&laquo;": "«",
+    "&raquo;": "»",
+  };
+
+  const decodeOnce = (text: string) =>
+    text
+      .replace(
+        /&#x([0-9a-fA-F]+);/g,
+        (_, hex) => {
+          const codePoint =
+            Number.parseInt(hex, 16);
+
+          if (
+            !Number.isFinite(codePoint) ||
+            codePoint < 0 ||
+            codePoint > 0x10ffff ||
+            (codePoint >= 0xd800 &&
+              codePoint <= 0xdfff)
+          ) {
+            return "";
+          }
+
+          try {
+            return String.fromCodePoint(
+              codePoint
+            );
+          } catch {
+            return "";
+          }
+        }
+      )
+      .replace(
+        /&#([0-9]+);/g,
+        (_, decimal) => {
+          const codePoint =
+            Number.parseInt(
+              decimal,
+              10
+            );
+
+          if (
+            !Number.isFinite(codePoint) ||
+            codePoint < 0 ||
+            codePoint > 0x10ffff ||
+            (codePoint >= 0xd800 &&
+              codePoint <= 0xdfff)
+          ) {
+            return "";
+          }
+
+          try {
+            return String.fromCodePoint(
+              codePoint
+            );
+          } catch {
+            return "";
+          }
+        }
+      )
+      .replace(
+        /&[a-zA-Z][a-zA-Z0-9]+;/g,
+        (entity) =>
+          namedEntities[entity] ??
+          entity
+      );
+
+  /*
+   * Some social platforms return metadata
+   * that has been encoded more than once.
+   */
+
+  for (let i = 0; i < 3; i++) {
+    const next = decodeOnce(decoded);
+
+    if (next === decoded) {
+      break;
+    }
+
+    decoded = next;
+  }
+
+  return decoded;
+}
+
+function cleanPreviewText(
+  value: string | null | undefined,
+  maxLength = 500
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const cleaned = decodeHtmlEntities(
+    value
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+
+  if (!cleaned) {
+    return null;
+  }
+
+  return cleaned.length > maxLength
+    ? `${cleaned.slice(0, maxLength - 1).trim()}…`
+    : cleaned;
+}
+
+function getFirstUrl(content: string): string | null {
+  const urlMatch = content.match(
+    /https?:\/\/[^\s<]+/i
+  );
+
+  if (!urlMatch) {
+    return null;
+  }
+
+  return urlMatch[0].replace(
+    /[),.!?]+$/,
+    ""
+  );
+}
+
+function getHostname(url: string): string | null {
+  try {
+    return new URL(url).hostname
+      .toLowerCase()
+      .replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function getYouTubeVideoId(
+  url: string
+): string | null {
+  try {
+    const parsedUrl = new URL(url);
+
+    const hostname = parsedUrl.hostname
+      .toLowerCase()
+      .replace(/^www\./, "");
+
+    if (
+      hostname === "youtube.com" ||
+      hostname === "m.youtube.com"
+    ) {
+      if (
+        parsedUrl.pathname ===
+        "/watch"
+      ) {
+        return (
+          parsedUrl.searchParams.get("v")
+        );
+      }
+
+      if (
+        parsedUrl.pathname.startsWith(
+          "/shorts/"
+        )
+      ) {
+        return (
+          parsedUrl.pathname
+            .split("/")[2]
+            ?.split("?")[0] || null
+        );
+      }
+
+      if (
+        parsedUrl.pathname.startsWith(
+          "/embed/"
+        )
+      ) {
+        return (
+          parsedUrl.pathname
+            .split("/")[2]
+            ?.split("?")[0] || null
+        );
+      }
+
+      if (
+        parsedUrl.pathname.startsWith(
+          "/live/"
+        )
+      ) {
+        return (
+          parsedUrl.pathname
+            .split("/")[2]
+            ?.split("?")[0] || null
+        );
+      }
+    }
+
+    if (
+      hostname === "youtu.be"
+    ) {
+      return (
+        parsedUrl.pathname
+          .split("/")[1]
+          ?.split("?")[0] || null
+      );
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function isTikTokUrl(url: string): boolean {
+  const hostname =
+    getHostname(url);
+
+  if (!hostname) {
+    return false;
+  }
+
+  return (
+    hostname === "tiktok.com" ||
+    hostname.endsWith(".tiktok.com")
+  );
+}
+
+function isInstagramUrl(
+  url: string
+): boolean {
+  const hostname =
+    getHostname(url);
+
+  if (!hostname) {
+    return false;
+  }
+
+  return (
+    hostname === "instagram.com" ||
+    hostname.endsWith(".instagram.com")
+  );
+}
+
+function isSafeExternalUrl(
+  url: string
+): boolean {
+  try {
+    const parsedUrl =
+      new URL(url);
+
+    if (
+      parsedUrl.protocol !==
+        "http:" &&
+      parsedUrl.protocol !==
+        "https:"
+    ) {
+      return false;
+    }
+
+    if (
+      parsedUrl.username ||
+      parsedUrl.password
+    ) {
+      return false;
+    }
+
+    const hostname =
+      parsedUrl.hostname
+        .toLowerCase();
+
+    const blockedHosts = [
+      "localhost",
+      "127.0.0.1",
+      "0.0.0.0",
+      "::1",
+      "169.254.169.254",
+    ];
+
+    if (
+      blockedHosts.includes(
+        hostname
+      )
+    ) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getMetaContent(
+  html: string,
+  attribute: "property" | "name",
+  value: string
+): string | null {
+  const escapedValue =
+    value.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
+
+  const pattern = new RegExp(
+    `<meta[^>]+${attribute}=["']${escapedValue}["'][^>]*content=["']([^"']*)["'][^>]*>`,
+    "i"
+  );
+
+  const reversePattern =
+    new RegExp(
+      `<meta[^>]+content=["']([^"']*)["'][^>]*${attribute}=["']${escapedValue}["'][^>]*>`,
+      "i"
+    );
+
+  return (
+    html.match(pattern)?.[1] ??
+    html.match(reversePattern)?.[1] ??
+    null
+  );
+}
+
+function getTitleFromHtml(
+  html: string
+): string | null {
+  const match = html.match(
+    /<title[^>]*>([\s\S]*?)<\/title>/i
+  );
+
+  return match
+    ? cleanPreviewText(match[1], 180)
+    : null;
+}
+
+function getDescriptionFromHtml(
+  html: string
+): string | null {
+  return (
+    cleanPreviewText(
+      getMetaContent(
+        html,
+        "property",
+        "og:description"
+      )
+    ) ??
+    cleanPreviewText(
+      getMetaContent(
+        html,
+        "name",
+        "description"
+      )
+    )
+  );
+}
+
+function getImageFromHtml(
+  html: string,
+  baseUrl: string
+): string | null {
+  const rawImage =
+    getMetaContent(
+      html,
+      "property",
+      "og:image"
+    ) ??
+    getMetaContent(
+      html,
+      "name",
+      "twitter:image"
+    );
+
+  if (!rawImage) {
+    return null;
+  }
+
+  try {
+    return new URL(
+      decodeHtmlEntities(
+        rawImage
+      ),
+      baseUrl
+    ).toString();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchHtml(
+  url: string
+): Promise<string | null> {
+  if (
+    !isSafeExternalUrl(url)
+  ) {
+    return null;
+  }
+
+  const controller =
+    new AbortController();
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    5000
+  );
+
+  try {
+    const response =
+      await fetch(url, {
+        method: "GET",
+        redirect: "follow",
+        signal:
+          controller.signal,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (compatible; MelagramLinkPreview/1.0)",
+          Accept:
+            "text/html,application/xhtml+xml",
+        },
+      });
+
+    if (
+      !response.ok
+    ) {
+      return null;
+    }
+
+    const contentType =
+      response.headers.get(
+        "content-type"
+      ) || "";
+
+    if (
+      !contentType.includes(
+        "text/html"
+      ) &&
+      !contentType.includes(
+        "application/xhtml+xml"
+      )
+    ) {
+      return null;
+    }
+
+    const html =
+      await response.text();
+
+    if (
+      html.length >
+      2_000_000
+    ) {
+      return html.slice(
+        0,
+        2_000_000
+      );
+    }
+
+    return html;
+  } catch (error) {
+    console.error(
+      "Link preview fetch error:",
+      error
+    );
+
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function getYouTubePreview(
+  url: string,
+  videoId: string
+): Promise<LinkPreview> {
+  const thumbnail =
+    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+  let title =
+    "YouTube Video";
+
+  let description =
+    "Watch this video on YouTube.";
+
+  try {
+    const oembedUrl =
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+
+    const controller =
+      new AbortController();
+
+    const timeout =
+      setTimeout(
+        () => controller.abort(),
+        4000
+      );
+
+    try {
+      const response =
+        await fetch(
+          oembedUrl,
+          {
+            signal:
+              controller.signal,
+            headers: {
+              Accept:
+                "application/json",
+            },
+          }
+        );
+
+      if (
+        response.ok
+      ) {
+        const data =
+          await response.json();
+
+        if (
+          typeof data.title ===
+            "string" &&
+          data.title.trim()
+        ) {
+          title =
+            cleanPreviewText(
+              data.title,
+              180
+            ) ??
+            title;
+        }
+
+        if (
+          typeof data.author_name ===
+            "string" &&
+          data.author_name.trim()
+        ) {
+          description =
+            `By ${cleanPreviewText(
+              data.author_name,
+              120
+            )}`;
+        }
+
+        if (
+          typeof data.thumbnail_url ===
+            "string" &&
+          data.thumbnail_url
+        ) {
+          return {
+            linkUrl: url,
+            linkType: "youtube",
+            linkTitle: title,
+            linkDescription:
+              description,
+            linkImageUrl:
+              data.thumbnail_url,
+          };
+        }
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (error) {
+    console.error(
+      "YouTube preview error:",
+      error
+    );
+  }
+
+  return {
+    linkUrl: url,
+    linkType: "youtube",
+    linkTitle: title,
+    linkDescription:
+      description,
+    linkImageUrl:
+      thumbnail,
+  };
+}
+
+async function getTikTokPreview(
+  url: string
+): Promise<LinkPreview> {
+  let title =
+    "TikTok Video";
+
+  let description =
+    "Watch this video on TikTok.";
+
+  let imageUrl: string | null =
+    null;
+
+  try {
+    const oembedUrl =
+      `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
+
+    const controller =
+      new AbortController();
+
+    const timeout =
+      setTimeout(
+        () => controller.abort(),
+        5000
+      );
+
+    try {
+      const response =
+        await fetch(
+          oembedUrl,
+          {
+            signal:
+              controller.signal,
+            headers: {
+              Accept:
+                "application/json",
+            },
+          }
+        );
+
+      if (
+        response.ok
+      ) {
+        const data =
+          await response.json();
+
+        if (
+          typeof data.title ===
+            "string" &&
+          data.title.trim()
+        ) {
+          title =
+            cleanPreviewText(
+              data.title,
+              180
+            ) ??
+            title;
+        }
+
+        if (
+          typeof data.author_name ===
+            "string" &&
+          data.author_name.trim()
+        ) {
+          description =
+            `By ${cleanPreviewText(
+              data.author_name,
+              120
+            )}`;
+        }
+
+        if (
+          typeof data.thumbnail_url ===
+            "string" &&
+          data.thumbnail_url
+        ) {
+          imageUrl =
+            data.thumbnail_url;
+        }
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (error) {
+    console.error(
+      "TikTok preview error:",
+      error
+    );
+  }
+
+  if (!imageUrl) {
+    const html =
+      await fetchHtml(url);
+
+    if (html) {
+      title =
+        getMetaContent(
+          html,
+          "property",
+          "og:title"
+        ) ??
+        getTitleFromHtml(
+          html
+        ) ??
+        title;
+
+      description =
+        getDescriptionFromHtml(
+          html
+        ) ??
+        description;
+
+      imageUrl =
+        getImageFromHtml(
+          html,
+          url
+        );
+    }
+  }
+
+  return {
+    linkUrl: url,
+    linkType: "tiktok",
+    linkTitle:
+      cleanPreviewText(
+        title,
+        180
+      ) ?? "TikTok Video",
+    linkDescription:
+      cleanPreviewText(
+        description,
+        300
+      ),
+    linkImageUrl:
+      imageUrl,
+  };
+}
+
+async function getInstagramPreview(
+  url: string
+): Promise<LinkPreview> {
+  let title =
+    "Instagram Post";
+
+  let description =
+    "View this post on Instagram.";
+
+  let imageUrl: string | null =
+    null;
+
+  const html =
+    await fetchHtml(url);
+
+  if (html) {
+    title =
+      getMetaContent(
+        html,
+        "property",
+        "og:title"
+      ) ??
+      getMetaContent(
+        html,
+        "property",
+        "twitter:title"
+      ) ??
+      getTitleFromHtml(
+        html
+      ) ??
+      title;
+
+    description =
+      getDescriptionFromHtml(
+        html
+      ) ??
+      description;
+
+    imageUrl =
+      getImageFromHtml(
+        html,
+        url
+      );
+  }
+
+  return {
+    linkUrl: url,
+    linkType: "instagram",
+    linkTitle:
+      cleanPreviewText(
+        title,
+        180
+      ) ?? "Instagram Post",
+    linkDescription:
+      cleanPreviewText(
+        description,
+        300
+      ),
+    linkImageUrl:
+      imageUrl,
+  };
+}
+
+async function getWebsitePreview(
+  url: string
+): Promise<LinkPreview> {
+  const hostname =
+    getHostname(url);
+
+  let title =
+    hostname
+      ? hostname
+          .replace(/^www\./, "")
+      : "Website";
+
+  let description:
+    string | null = null;
+
+  let imageUrl:
+    string | null = null;
+
+  const html =
+    await fetchHtml(url);
+
+  if (html) {
+    title =
+      getMetaContent(
+        html,
+        "property",
+        "og:title"
+      ) ??
+      getMetaContent(
+        html,
+        "name",
+        "twitter:title"
+      ) ??
+      getTitleFromHtml(
+        html
+      ) ??
+      title;
+
+    description =
+      getDescriptionFromHtml(
+        html
+      );
+
+    imageUrl =
+      getImageFromHtml(
+        html,
+        url
+      );
+  }
+
+  return {
+    linkUrl: url,
+    linkType: "website",
+    linkTitle:
+      cleanPreviewText(
+        title,
+        180
+      ),
+    linkDescription:
+      cleanPreviewText(
+        description,
+        300
+      ),
+    linkImageUrl:
+      imageUrl,
+  };
+}
+
+async function getLinkPreview(
+  content: string
+): Promise<LinkPreview> {
+  const linkUrl =
+    getFirstUrl(content);
+
+  if (!linkUrl) {
+    return emptyLinkPreview();
+  }
+
+  const youtubeVideoId =
+    getYouTubeVideoId(
+      linkUrl
+    );
+
+  if (youtubeVideoId) {
+    return getYouTubePreview(
+      linkUrl,
+      youtubeVideoId
+    );
+  }
+
+  if (
+    isTikTokUrl(linkUrl)
+  ) {
+    return getTikTokPreview(
+      linkUrl
+    );
+  }
+
+  if (
+    isInstagramUrl(linkUrl)
+  ) {
+    return getInstagramPreview(
+      linkUrl
+    );
+  }
+
+  return getWebsitePreview(
+    linkUrl
+  );
+}
+
 export const server = {
   /* ========================================
      SIGN UP
@@ -694,6 +1620,11 @@ export const server = {
           imageUrl = publicUrl;
         }
 
+        const linkPreview =
+          await getLinkPreview(
+            content
+          );
+
         const { error } =
           await supabase
             .from("posts")
@@ -701,6 +1632,16 @@ export const server = {
               user_id: user.id,
               content,
               image_url: imageUrl,
+              link_url:
+                linkPreview.linkUrl,
+              link_type:
+                linkPreview.linkType,
+              link_title:
+                linkPreview.linkTitle,
+              link_description:
+                linkPreview.linkDescription,
+              link_image_url:
+                linkPreview.linkImageUrl,
             });
 
         if (error) {
@@ -778,7 +1719,9 @@ export const server = {
           error: postLookupError,
         } = await supabase
           .from("posts")
-          .select("id, user_id, image_url")
+          .select(
+            "id, user_id, image_url"
+          )
           .eq("id", input.postId)
           .eq("user_id", user.id)
           .maybeSingle();
@@ -804,12 +1747,13 @@ export const server = {
           };
         }
 
-        const { error: deleteError } =
-          await supabase
-            .from("posts")
-            .delete()
-            .eq("id", post.id)
-            .eq("user_id", user.id);
+        const {
+          error: deleteError,
+        } = await supabase
+          .from("posts")
+          .delete()
+          .eq("id", post.id)
+          .eq("user_id", user.id);
 
         if (deleteError) {
           console.error(
@@ -829,22 +1773,34 @@ export const server = {
             "/storage/v1/object/public/post-images/";
 
           const markerIndex =
-            post.image_url.indexOf(marker);
-
-          if (markerIndex !== -1) {
-            const imagePath = decodeURIComponent(
-              post.image_url.slice(
-                markerIndex + marker.length
-              )
+            post.image_url.indexOf(
+              marker
             );
 
-            const {
-              error: imageDeleteError,
-            } = await supabase.storage
-              .from("post-images")
-              .remove([imagePath]);
+          if (
+            markerIndex !== -1
+          ) {
+            const imagePath =
+              decodeURIComponent(
+                post.image_url.slice(
+                  markerIndex +
+                    marker.length
+                )
+              );
 
-            if (imageDeleteError) {
+            const {
+              error:
+                imageDeleteError,
+            } =
+              await supabase.storage
+                .from("post-images")
+                .remove([
+                  imagePath,
+                ]);
+
+            if (
+              imageDeleteError
+            ) {
               console.error(
                 "Post image cleanup error:",
                 imageDeleteError
@@ -907,16 +1863,25 @@ export const server = {
 
         const {
           data: existingLike,
-          error: existingLikeError,
+          error:
+            existingLikeError,
         } =
           await supabase
             .from("post_likes")
             .select("id")
-            .eq("post_id", input.postId)
-            .eq("user_id", user.id)
+            .eq(
+              "post_id",
+              input.postId
+            )
+            .eq(
+              "user_id",
+              user.id
+            )
             .maybeSingle();
 
-        if (existingLikeError) {
+        if (
+          existingLikeError
+        ) {
           console.error(
             "Check like error:",
             existingLikeError
@@ -972,8 +1937,10 @@ export const server = {
           await supabase
             .from("post_likes")
             .insert({
-              post_id: input.postId,
-              user_id: user.id,
+              post_id:
+                input.postId,
+              user_id:
+                user.id,
             });
 
         if (insertError) {
@@ -1060,8 +2027,10 @@ export const server = {
           await supabase
             .from("post_comments")
             .insert({
-              post_id: input.postId,
-              user_id: user.id,
+              post_id:
+                input.postId,
+              user_id:
+                user.id,
               content,
             });
 
@@ -1174,7 +2143,11 @@ export const server = {
             "image/gif",
           ];
 
-          if (!allowedTypes.includes(image.type)) {
+          if (
+            !allowedTypes.includes(
+              image.type
+            )
+          ) {
             return {
               success: false,
               message:
@@ -1185,7 +2158,10 @@ export const server = {
           const maxSize =
             10 * 1024 * 1024;
 
-          if (image.size > maxSize) {
+          if (
+            image.size >
+            maxSize
+          ) {
             return {
               success: false,
               message:
@@ -1206,17 +2182,23 @@ export const server = {
             `${user.id}/community-${crypto.randomUUID()}.${extension}`;
 
           const {
-            error: uploadError,
-          } = await supabase.storage
-            .from("post-images")
-            .upload(
-              imagePath,
-              image,
-              {
-                contentType: image.type,
-                upsert: false,
-              }
-            );
+            error:
+              uploadError,
+          } =
+            await supabase.storage
+              .from(
+                "post-images"
+              )
+              .upload(
+                imagePath,
+                image,
+                {
+                  contentType:
+                    image.type,
+                  upsert:
+                    false,
+                }
+              );
 
           if (uploadError) {
             console.error(
@@ -1232,30 +2214,59 @@ export const server = {
           }
 
           const {
-            data: { publicUrl },
+            data: {
+              publicUrl,
+            },
           } =
             supabase.storage
-              .from("post-images")
-              .getPublicUrl(imagePath);
+              .from(
+                "post-images"
+              )
+              .getPublicUrl(
+                imagePath
+              );
 
-          imageUrl = publicUrl;
+          imageUrl =
+            publicUrl;
         }
+
+        const linkPreview =
+          await getLinkPreview(
+            content
+          );
 
         const { error } =
           await supabase
             .from("posts")
             .insert({
-              user_id: user.id,
+              user_id:
+                user.id,
               content,
-              community_slug: communitySlug,
-              image_url: imageUrl,
+              community_slug:
+                communitySlug,
+              image_url:
+                imageUrl,
+              link_url:
+                linkPreview.linkUrl,
+              link_type:
+                linkPreview.linkType,
+              link_title:
+                linkPreview.linkTitle,
+              link_description:
+                linkPreview.linkDescription,
+              link_image_url:
+                linkPreview.linkImageUrl,
             });
 
         if (error) {
           if (imagePath) {
             await supabase.storage
-              .from("post-images")
-              .remove([imagePath]);
+              .from(
+                "post-images"
+              )
+              .remove([
+                imagePath,
+              ]);
           }
 
           console.error(
@@ -1322,7 +2333,10 @@ export const server = {
           };
         }
 
-        if (user.id === input.userId) {
+        if (
+          user.id ===
+          input.userId
+        ) {
           return {
             success: false,
             following: false,
@@ -1333,7 +2347,8 @@ export const server = {
 
         const {
           data: existingFollow,
-          error: existingFollowError,
+          error:
+            existingFollowError,
         } =
           await supabase
             .from("follows")
@@ -1348,7 +2363,9 @@ export const server = {
             )
             .maybeSingle();
 
-        if (existingFollowError) {
+        if (
+          existingFollowError
+        ) {
           console.error(
             "Check follow error:",
             existingFollowError
@@ -1364,7 +2381,8 @@ export const server = {
 
         if (existingFollow) {
           const {
-            error: deleteError,
+            error:
+              deleteError,
           } =
             await supabase
               .from("follows")
@@ -1404,7 +2422,8 @@ export const server = {
           await supabase
             .from("follows")
             .insert({
-              follower_id: user.id,
+              follower_id:
+                user.id,
               following_id:
                 input.userId,
             });
@@ -1475,19 +2494,28 @@ export const server = {
           };
         }
 
-        const { error } = await supabase
-          .from("community_members")
-          .insert({
-            community_id: input.communityId,
-            user_id: user.id,
-          });
+        const { error } =
+          await supabase
+            .from(
+              "community_members"
+            )
+            .insert({
+              community_id:
+                input.communityId,
+              user_id:
+                user.id,
+            });
 
         if (error) {
-          if (error.code === "23505") {
+          if (
+            error.code ===
+            "23505"
+          ) {
             return {
               success: true,
               joined: true,
-              message: "You are already a member of this community.",
+              message:
+                "You are already a member of this community.",
             };
           }
 
@@ -1558,11 +2586,20 @@ export const server = {
           };
         }
 
-        const { error } = await supabase
-          .from("community_members")
-          .delete()
-          .eq("community_id", input.communityId)
-          .eq("user_id", user.id);
+        const { error } =
+          await supabase
+            .from(
+              "community_members"
+            )
+            .delete()
+            .eq(
+              "community_id",
+              input.communityId
+            )
+            .eq(
+              "user_id",
+              user.id
+            );
 
         if (error) {
           console.error(
@@ -1599,6 +2636,4 @@ export const server = {
       }
     },
   }),
-
 };
-

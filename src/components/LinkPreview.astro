@@ -1,0 +1,127 @@
+---
+interface Props {
+  linkUrl: string;
+  linkType?: string | null;
+  linkTitle?: string | null;
+  linkDescription?: string | null;
+  linkImageUrl?: string | null;
+}
+
+const {
+  linkUrl,
+  linkType,
+  linkTitle,
+  linkDescription,
+  linkImageUrl,
+} = Astro.props;
+
+const platform =
+  linkType === "youtube"
+    ? "YouTube"
+    : linkType === "tiktok"
+      ? "TikTok"
+      : linkType === "instagram"
+        ? "Instagram"
+        : "Website";
+
+const platformIcon =
+  linkType === "youtube"
+    ? "▶"
+    : linkType === "tiktok"
+      ? "♪"
+      : linkType === "instagram"
+        ? "◎"
+        : "🔗";
+
+const title =
+  linkTitle ||
+  platform;
+
+const description =
+  linkDescription ||
+  "Open this link on the web.";
+---
+
+<a
+  href={linkUrl}
+  target="_blank"
+  rel="noopener noreferrer"
+  class="group mt-5 block overflow-hidden rounded-2xl border border-[#d9ad55]/30 bg-black/40 transition duration-300 hover:border-[#d9ad55]/70 hover:bg-black/60"
+>
+
+  {linkImageUrl && (
+    <div class="relative overflow-hidden bg-black">
+
+      <img
+        src={linkImageUrl}
+        alt={title}
+        class="aspect-video w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+        loading="lazy"
+      />
+
+      {linkType === "youtube" && (
+        <div
+          class="absolute inset-0 flex items-center justify-center bg-black/20 transition group-hover:bg-black/10"
+        >
+
+          <div
+            class="flex h-16 w-16 items-center justify-center rounded-full border border-white/30 bg-black/65 text-2xl text-white shadow-2xl backdrop-blur-sm transition duration-300 group-hover:scale-110"
+          >
+            ▶
+          </div>
+
+        </div>
+      )}
+
+    </div>
+  )}
+
+
+  <div class="p-5">
+
+    <div
+      class="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#d9ad55]"
+    >
+
+      <span>
+        {platformIcon}
+      </span>
+
+      <span>
+        {platform}
+      </span>
+
+    </div>
+
+
+    <h3
+      class="mt-2 text-lg font-semibold text-[#ffe8a6]"
+    >
+      {title}
+    </h3>
+
+
+    {description && (
+      <p
+        class="mt-2 text-sm leading-6 text-white/50"
+      >
+        {description}
+      </p>
+    )}
+
+
+    <div
+      class="mt-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-white/60 transition group-hover:text-[#ffe8a6]"
+    >
+
+      Open on {platform}
+
+      <span>
+        ↗
+      </span>
+
+    </div>
+
+  </div>
+
+</a>
