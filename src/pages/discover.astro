@@ -5,7 +5,6 @@ import { createClient } from "../lib/supabase";
 const supabase = createClient({
   request: Astro.request,
   cookies: Astro.cookies,
-  env: Astro.locals.runtime.env,
 });
 
 const {
@@ -13,7 +12,17 @@ const {
 } = await supabase.auth.getUser();
 
 /* ========================================
-   DISCOVER MEMBERS
+   SEARCH
+======================================== */
+
+const searchQuery =
+  Astro.url.searchParams.get("q")?.trim() || "";
+
+const escapedSearch =
+  searchQuery.replace(/[%_]/g, (character) => `\\${character}`);
+
+/* ========================================
+   MEMBERS
 ======================================== */
 
 const { data: profiles } = await supabase
@@ -22,15 +31,36 @@ const { data: profiles } = await supabase
     "id, username, full_name, bio, avatar_url, created_at"
   )
   .order("created_at", { ascending: false })
-  .limit(24);
+  .limit(50);
 
-const allProfiles = profiles ?? [];
+let allProfiles = profiles ?? [];
+
+if (searchQuery) {
+  const query = searchQuery.toLowerCase();
+
+  allProfiles = allProfiles.filter((member) => {
+    const name =
+      member.full_name?.toLowerCase() || "";
+
+    const username =
+      member.username?.toLowerCase() || "";
+
+    const bio =
+      member.bio?.toLowerCase() || "";
+
+    return (
+      name.includes(query) ||
+      username.includes(query) ||
+      bio.includes(query)
+    );
+  });
+}
 
 const members = currentUser
   ? allProfiles.filter(
       (member) => member.id !== currentUser.id
     )
-  : [];
+  : allProfiles;
 
 /* ========================================
    FOLLOWING DATA
@@ -68,37 +98,204 @@ if (
 }
 
 /* ========================================
-   DISCOVER CATEGORIES
+   COMMUNITIES
 ======================================== */
 
-const categories = [
+const { data: communities } =
+  await supabase
+    .from("communities")
+    .select(
+      "id, slug, name, description, category"
+    )
+    .order("name", {
+      ascending: true,
+    });
+
+const communityList =
+  communities ?? [];
+
+const communityIds =
+  communityList.map(
+    (community) => community.id
+  );
+
+let communityMemberCounts =
+  new Map<string, number>();
+
+if (communityIds.length > 0) {
+  const { data: memberships } =
+    await supabase
+      .from("community_members")
+      .select("community_id")
+      .in(
+        "community_id",
+        communityIds
+      );
+
+  const counts =
+    new Map<string, number>();
+
+  for (const membership of
+    memberships ?? []) {
+    counts.set(
+      membership.community_id,
+      (counts.get(
+        membership.community_id
+      ) ?? 0) + 1
+    );
+  }
+
+  communityMemberCounts =
+    counts;
+}
+
+/* ========================================
+   TRENDING POSTS
+======================================== */
+
+const { data: trendingPosts } =
+  await supabase
+    .from("posts")
+    .select(
+      `
+        id,
+        user_id,
+        content,
+        image_url,
+        created_at,
+        community_slug,
+        profiles!posts_user_id_fkey (
+          username,
+          full_name,
+          avatar_url
+        )
+      `
+    )
+    .order("created_at", {
+      ascending: false,
+    })
+    .limit(12);
+
+const posts =
+  trendingPosts ?? [];
+
+const postIds =
+  posts.map(
+    (post) => post.id
+  );
+
+let likeCounts =
+  new Map<string, number>();
+
+let commentCounts =
+  new Map<string, number>();
+
+if (postIds.length > 0) {
+  const { data: likes } =
+    await supabase
+      .from("likes")
+      .select("post_id")
+      .in(
+        "post_id",
+        postIds
+      );
+
+  for (const like of likes ?? []) {
+    likeCounts.set(
+      like.post_id,
+      (likeCounts.get(
+        like.post_id
+      ) ?? 0) + 1
+    );
+  }
+
+  const { data: comments } =
+    await supabase
+      .from("comments")
+      .select("post_id")
+      .in(
+        "post_id",
+        postIds
+      );
+
+  for (const comment of comments ?? []) {
+    commentCounts.set(
+      comment.post_id,
+      (commentCounts.get(
+        comment.post_id
+      ) ?? 0) + 1
+    );
+  }
+}
+
+const trending = [...posts]
+  .sort((a, b) => {
+    const scoreA =
+      (likeCounts.get(a.id) ?? 0) * 2 +
+      (commentCounts.get(a.id) ?? 0) * 3;
+
+    const scoreB =
+      (likeCounts.get(b.id) ?? 0) * 2 +
+      (commentCounts.get(b.id) ?? 0) * 3;
+
+    return scoreB - scoreA;
+  })
+  .slice(0, 6);
+
+/* ========================================
+   COMMUNITY DISPLAY HELPERS
+======================================== */
+
+const communityIcons: Record<
+  string,
+  string
+> = {
+  "creative-minds": "🎨",
+  "music-lounge": "🎵",
+  "movie-tv-talk": "🎬",
+  "food-flavor": "🍳",
+  "travel-circle": "✈️",
+  "real-talk": "💬",
+};
+
+const communityBySlug =
+  new Map(
+    communityList.map(
+      (community) => [
+        community.slug,
+        community,
+      ]
+    )
+  );
+
+/* ========================================
+   CREATOR CATEGORIES
+======================================== */
+
+const creatorCategories = [
   {
-    icon: "🔥",
-    title: "Trending Now",
+    icon: "♪",
+    title: "Music",
     text:
-      "See what conversations are getting people talking across Melagram.",
-    href: "#trending",
+      "Artists, producers, singers, and sound creators.",
   },
   {
-    icon: "👥",
-    title: "People to Follow",
+    icon: "✒",
+    title: "Writing",
     text:
-      "Discover interesting people and voices that belong in your network.",
-    href: "#people",
-  },
-  {
-    icon: "♛",
-    title: "Featured Creators",
-    text:
-      "Find creators bringing ideas, stories, art, and entertainment to life.",
-    href: "/creators",
+      "Authors, poets, bloggers, and storytellers.",
   },
   {
     icon: "◈",
-    title: "Popular Communities",
+    title: "Art & Design",
     text:
-      "Explore communities built around interests, culture, hobbies, and more.",
-    href: "/communities",
+      "Visual artists, designers, illustrators, and creatives.",
+  },
+  {
+    icon: "▣",
+    title: "Film & Video",
+    text:
+      "Filmmakers, directors, editors, and video creators.",
   },
 ];
 ---
@@ -120,7 +317,7 @@ const categories = [
 
     <meta
       name="description"
-      content="Discover people, creators, communities, and conversations on Melagram."
+      content="Discover people, communities, creators, and conversations on Melagram."
     />
 
   </head>
@@ -130,18 +327,14 @@ const categories = [
     class="min-h-screen bg-[#050208] text-[#fff7e5]"
   >
 
-    <!-- ===================================================== -->
     <!-- TOP GOLD BAR -->
-    <!-- ===================================================== -->
 
     <div
       class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"
     ></div>
 
 
-    <!-- ===================================================== -->
     <!-- NAVIGATION -->
-    <!-- ===================================================== -->
 
     <header
       class="border-b border-[#d9ad55]/30 bg-[#050208]/95"
@@ -254,9 +447,7 @@ const categories = [
     </header>
 
 
-    <!-- ===================================================== -->
     <!-- HERO -->
-    <!-- ===================================================== -->
 
     <main>
 
@@ -281,13 +472,11 @@ const categories = [
               class="gold-line w-20 sm:w-40"
             ></div>
 
-
             <span
               class="text-[9px] font-semibold uppercase tracking-[0.45em] text-[#d9ad55]"
             >
               Explore Melagram
             </span>
-
 
             <div
               class="gold-line w-20 sm:w-40"
@@ -317,166 +506,160 @@ const categories = [
             <p
               class="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/55 sm:text-lg"
             >
-              Discover conversations, creators, communities,
-              and people that make Melagram worth coming back to.
+              Discover real people, communities,
+              conversations, and creative voices
+              across Melagram.
             </p>
 
           </div>
 
-        </div>
 
-      </section>
+          <!-- SEARCH -->
 
+          <form
+            method="get"
+            action="/discover"
+            class="mx-auto mt-10 max-w-3xl"
+          >
 
-      <!-- ===================================================== -->
-      <!-- DISCOVERY CATEGORIES -->
-      <!-- ===================================================== -->
-
-      <section
-        class="border-y border-[#d9ad55]/20 bg-black/30 px-5 py-14 lg:px-10"
-      >
-
-        <div
-          class="mx-auto grid max-w-7xl gap-6 md:grid-cols-2"
-        >
-
-          {categories.map((category) => (
-
-            <a
-              href={category.href}
-              class="luxury-panel gold-border block rounded-2xl p-7 text-center transition hover:-translate-y-1 hover:bg-[#6d19c9]/10 hover:shadow-[0_0_30px_rgba(109,25,201,.25)] sm:p-9"
+            <div
+              class="luxury-panel gold-border rounded-2xl p-2"
             >
 
               <div
-                class="mx-auto mb-6 grid h-14 w-14 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-2xl"
+                class="flex flex-col gap-3 rounded-xl bg-black/30 p-3 sm:flex-row sm:items-center"
               >
-                {category.icon}
+
+                <div
+                  class="flex flex-1 items-center gap-3 px-2"
+                >
+
+                  <span
+                    class="text-xl text-[#d9ad55]"
+                  >
+                    ⌕
+                  </span>
+
+                  <input
+                    type="search"
+                    name="q"
+                    value={searchQuery}
+                    placeholder="Search people, communities, or creators..."
+                    class="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+                  />
+
+                </div>
+
+
+                <button
+                  type="submit"
+                  class="cta rounded-xl px-6 py-3 text-xs font-bold uppercase tracking-widest text-white"
+                >
+                  Search
+                </button>
+
               </div>
 
+            </div>
 
-              <h2
-                class="font-serif text-3xl text-[#ffe8a6]"
-              >
-                {category.title}
-              </h2>
+          </form>
 
+
+          {searchQuery && (
+            <div
+              class="mx-auto mt-5 max-w-2xl text-center"
+            >
 
               <p
-                class="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/55"
+                class="text-xs text-white/40"
               >
-                {category.text}
+                Search results for
+                <span class="font-semibold text-[#ffe8a6]">
+                  "{searchQuery}"
+                </span>
               </p>
 
-
-              <div
-                class="mx-auto mt-7 inline-flex rounded-xl border border-[#d9ad55]/60 px-6 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6]"
-              >
-                Explore →
-              </div>
-
-            </a>
-
-          ))}
+            </div>
+          )}
 
         </div>
 
       </section>
 
 
-      <!-- ===================================================== -->
-      <!-- PEOPLE TO FOLLOW -->
-      <!-- ===================================================== -->
+      <!-- SEARCH RESULTS / PEOPLE -->
 
-      <section
-        id="people"
-        class="px-5 py-20 lg:px-10"
-      >
-
-        <div
-          class="mx-auto max-w-7xl"
+      {searchQuery && (
+        <section
+          class="border-y border-[#d9ad55]/20 bg-black/30 px-5 py-16 lg:px-10"
         >
 
           <div
-            class="mb-12 text-center"
+            class="mx-auto max-w-7xl"
           >
 
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
-            >
-              FIND YOUR PEOPLE
-            </p>
-
-
-            <h2
-              class="mt-4 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
-            >
-              People to Follow
-            </h2>
-
-
             <div
-              class="gold-line mx-auto mt-6 w-28"
-            ></div>
-
-
-            <p
-              class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55"
-            >
-              Discover members of the Melagram community
-              and build your network.
-            </p>
-
-          </div>
-
-
-          {currentUser && members.length > 0 ? (
-
-            <div
-              class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              class="mb-10 text-center"
             >
 
-              {members.map((member) => {
+              <p
+                class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
+              >
+                SEARCH RESULTS
+              </p>
 
-                const displayName =
-                  member.full_name?.trim() ||
-                  member.username ||
-                  "Melagram Member";
 
-                const username =
-                  member.username ||
-                  "member";
+              <h2
+                class="mt-4 font-serif text-4xl text-[#fff4d4]"
+              >
+                People
+              </h2>
 
-                const bio =
-                  member.bio?.trim() ||
-                  "Welcome to Melagram. Connect, network, create, and build community.";
+            </div>
 
-                const isFollowing =
-                  followingIds.has(
-                    member.id
-                  );
 
-                const initials =
-                  displayName
-                    .split(" ")
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map(
-                      (name) =>
-                        name[0]
-                    )
-                    .join("")
-                    .toUpperCase();
+            {members.length > 0 ? (
 
-                return (
+              <div
+                class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              >
 
-                  <article
-                    class="luxury-panel gold-border rounded-2xl p-6 text-center transition hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(109,25,201,.25)]"
-                  >
+                {members.map((member) => {
 
-                    <!-- AVATAR -->
+                  const displayName =
+                    member.full_name?.trim() ||
+                    member.username ||
+                    "Melagram Member";
 
-                    <div
-                      class="mx-auto mb-5"
+                  const username =
+                    member.username ||
+                    "member";
+
+                  const bio =
+                    member.bio?.trim() ||
+                    "Welcome to Melagram. Connect, network, create, and build community.";
+
+                  const isFollowing =
+                    followingIds.has(
+                      member.id
+                    );
+
+                  const initials =
+                    displayName
+                      .split(" ")
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map(
+                        (name) =>
+                          name[0]
+                      )
+                      .join("")
+                      .toUpperCase();
+
+                  return (
+
+                    <article
+                      class="luxury-panel gold-border rounded-2xl p-6 text-center transition hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(109,25,201,.25)]"
                     >
 
                       {member.avatar_url ? (
@@ -484,7 +667,7 @@ const categories = [
                         <img
                           src={member.avatar_url}
                           alt={`${displayName} profile`}
-                          class="mx-auto h-24 w-24 rounded-full border-2 border-[#d9ad55]/70 object-cover shadow-[0_0_20px_rgba(109,25,201,.25)]"
+                          class="mx-auto h-24 w-24 rounded-full border-2 border-[#d9ad55]/70 object-cover"
                         />
 
                       ) : (
@@ -497,422 +680,1067 @@ const categories = [
 
                       )}
 
-                    </div>
 
-
-                    <!-- NAME -->
-
-                    <h3
-                      class="font-serif text-2xl text-[#ffe8a6]"
-                    >
-                      {displayName}
-                    </h3>
-
-
-                    <p
-                      class="mt-1 text-xs text-white/40"
-                    >
-                      @{username}
-                    </p>
-
-
-                    <!-- BIO -->
-
-                    <p
-                      class="mt-4 min-h-[84px] text-sm leading-7 text-white/55"
-                    >
-                      {bio}
-                    </p>
-
-
-                    <!-- ACTIONS -->
-
-                    <div
-                      class="mt-6 grid gap-3"
-                    >
-
-                      <a
-                        href={`/members/${username}`}
-                        class="flex min-h-[48px] items-center justify-center rounded-xl border border-[#d9ad55]/50 px-4 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:border-[#ffe8a6] hover:bg-[#24102f]"
+                      <h3
+                        class="mt-5 font-serif text-2xl text-[#ffe8a6]"
                       >
-                        View Profile
-                      </a>
+                        {displayName}
+                      </h3>
 
 
-                      <button
-                        type="button"
-                        class:list={[
-                          "followMemberButton",
-                          "flex",
-                          "min-h-[48px]",
-                          "items-center",
-                          "justify-center",
-                          "rounded-xl",
-                          "px-4",
-                          "py-3",
-                          "text-xs",
-                          "font-bold",
-                          "uppercase",
-                          "tracking-widest",
-                          "transition",
-                          isFollowing
-                            ? [
-                                "border",
-                                "border-[#d9ad55]/60",
-                                "bg-[#24102f]",
-                                "text-[#ffe8a6]",
-                              ]
-                            : [
-                                "cta",
-                                "text-white",
-                              ],
-                        ]}
-                        data-user-id={member.id}
-                        data-following={
-                          isFollowing
-                            ? "true"
-                            : "false"
-                        }
+                      <p
+                        class="mt-1 text-xs text-white/40"
                       >
-                        {isFollowing
-                          ? "Following"
-                          : "Follow"}
-                      </button>
+                        @{username}
+                      </p>
 
-                    </div>
 
-                  </article>
+                      <p
+                        class="mt-4 min-h-[72px] text-sm leading-7 text-white/55"
+                      >
+                        {bio}
+                      </p>
 
-                );
 
-              })}
+                      <div
+                        class="mt-6 grid gap-3"
+                      >
+
+                        <a
+                          href={`/members/${username}`}
+                          class="flex min-h-[48px] items-center justify-center rounded-xl border border-[#d9ad55]/50 px-4 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#24102f]"
+                        >
+                          View Profile
+                        </a>
+
+
+                        {currentUser && (
+                          <button
+                            type="button"
+                            class:list={[
+                              "followMemberButton",
+                              "flex",
+                              "min-h-[48px]",
+                              "items-center",
+                              "justify-center",
+                              "rounded-xl",
+                              "px-4",
+                              "py-3",
+                              "text-xs",
+                              "font-bold",
+                              "uppercase",
+                              "tracking-widest",
+                              "transition",
+                              isFollowing
+                                ? [
+                                    "border",
+                                    "border-[#d9ad55]/60",
+                                    "bg-[#24102f]",
+                                    "text-[#ffe8a6]",
+                                  ]
+                                : [
+                                    "cta",
+                                    "text-white",
+                                  ],
+                            ]}
+                            data-user-id={member.id}
+                            data-following={
+                              isFollowing
+                                ? "true"
+                                : "false"
+                            }
+                          >
+                            {isFollowing
+                              ? "Following"
+                              : "Follow"}
+                          </button>
+                        )}
+
+                      </div>
+
+                    </article>
+
+                  );
+
+                })}
+
+              </div>
+
+            ) : (
+
+              <div
+                class="luxury-panel gold-border mx-auto max-w-2xl rounded-2xl p-10 text-center"
+              >
+
+                <div class="text-4xl">
+                  🔎
+                </div>
+
+                <h3
+                  class="mt-5 font-serif text-3xl text-[#ffe8a6]"
+                >
+                  No people found.
+                </h3>
+
+                <p
+                  class="mt-4 text-sm leading-7 text-white/55"
+                >
+                  Try another name, username,
+                  or keyword.
+                </p>
+
+              </div>
+
+            )}
+
+          </div>
+
+        </section>
+      )}
+
+
+      <!-- DISCOVERY CATEGORIES -->
+
+      {!searchQuery && (
+        <section
+          class="border-y border-[#d9ad55]/20 bg-black/30 px-5 py-14 lg:px-10"
+        >
+
+          <div
+            class="mx-auto max-w-7xl"
+          >
+
+            <div
+              class="mb-10 text-center"
+            >
+
+              <p
+                class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
+              >
+                EXPLORE
+              </p>
+
+              <h2
+                class="mt-4 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
+              >
+                What are you looking for?
+              </h2>
 
             </div>
 
-          ) : currentUser ? (
 
             <div
-              class="luxury-panel gold-border mx-auto max-w-2xl rounded-2xl p-10 text-center"
+              class="grid gap-6 md:grid-cols-2"
             >
 
-              <div
-                class="text-4xl"
+              <a
+                href="#people"
+                class="luxury-panel gold-border rounded-2xl p-7 text-center transition hover:-translate-y-1 hover:bg-[#6d19c9]/10"
               >
-                👥
-              </div>
 
+                <div
+                  class="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-2xl"
+                >
+                  👥
+                </div>
 
-              <h3
-                class="mt-5 font-serif text-3xl text-[#ffe8a6]"
-              >
-                You're early.
-              </h3>
+                <h3
+                  class="mt-5 font-serif text-3xl text-[#ffe8a6]"
+                >
+                  People
+                </h3>
 
+                <p
+                  class="mx-auto mt-3 max-w-md text-sm leading-7 text-white/55"
+                >
+                  Discover members, view profiles,
+                  and build your network.
+                </p>
 
-              <p
-                class="mt-4 text-sm leading-7 text-white/55"
-              >
-                As more people join Melagram,
-                you'll see members here that you can
-                connect with and follow.
-              </p>
+              </a>
 
 
               <a
-                href="/join"
-                class="cta mt-7 inline-flex rounded-xl px-7 py-3 text-xs font-bold uppercase tracking-widest text-white"
+                href="#trending"
+                class="luxury-panel gold-border rounded-2xl p-7 text-center transition hover:-translate-y-1 hover:bg-[#6d19c9]/10"
               >
-                Invite Someone to Melagram
+
+                <div
+                  class="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-2xl"
+                >
+                  🔥
+                </div>
+
+                <h3
+                  class="mt-5 font-serif text-3xl text-[#ffe8a6]"
+                >
+                  Conversations
+                </h3>
+
+                <p
+                  class="mx-auto mt-3 max-w-md text-sm leading-7 text-white/55"
+                >
+                  See what people across Melagram
+                  are talking about.
+                </p>
+
+              </a>
+
+
+              <a
+                href="/communities"
+                class="luxury-panel gold-border rounded-2xl p-7 text-center transition hover:-translate-y-1 hover:bg-[#6d19c9]/10"
+              >
+
+                <div
+                  class="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-2xl"
+                >
+                  🏘️
+                </div>
+
+                <h3
+                  class="mt-5 font-serif text-3xl text-[#ffe8a6]"
+                >
+                  Communities
+                </h3>
+
+                <p
+                  class="mx-auto mt-3 max-w-md text-sm leading-7 text-white/55"
+                >
+                  Find communities built around
+                  interests, culture, hobbies, and more.
+                </p>
+
+              </a>
+
+
+              <a
+                href="/creators"
+                class="luxury-panel gold-border rounded-2xl p-7 text-center transition hover:-translate-y-1 hover:bg-[#6d19c9]/10"
+              >
+
+                <div
+                  class="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-2xl"
+                >
+                  ♔
+                </div>
+
+                <h3
+                  class="mt-5 font-serif text-3xl text-[#ffe8a6]"
+                >
+                  Creators
+                </h3>
+
+                <p
+                  class="mx-auto mt-3 max-w-md text-sm leading-7 text-white/55"
+                >
+                  Meet artists, storytellers,
+                  innovators, and creative voices.
+                </p>
+
               </a>
 
             </div>
 
-          ) : (
+          </div>
 
-            <div
-              class="luxury-panel gold-border mx-auto max-w-2xl rounded-2xl p-10 text-center"
-            >
-
-              <div
-                class="text-4xl"
-              >
-                👋
-              </div>
+        </section>
+      )}
 
 
-              <h3
-                class="mt-5 font-serif text-3xl text-[#ffe8a6]"
-              >
-                Meet the Melagram community.
-              </h3>
+      <!-- PEOPLE TO FOLLOW -->
 
-
-              <p
-                class="mt-4 text-sm leading-7 text-white/55"
-              >
-                Sign in to discover members,
-                view profiles, and connect with people
-                across Melagram.
-              </p>
-
-
-              <div
-                class="mt-7 flex flex-col justify-center gap-3 sm:flex-row"
-              >
-
-                <a
-                  href="/login"
-                  class="inline-flex justify-center rounded-xl border border-[#d9ad55]/50 px-7 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#24102f]"
-                >
-                  Log In
-                </a>
-
-
-                <a
-                  href="/join"
-                  class="cta inline-flex justify-center rounded-xl px-7 py-3 text-xs font-bold uppercase tracking-widest text-white"
-                >
-                  Join Melagram
-                </a>
-
-              </div>
-
-            </div>
-
-          )}
-
-        </div>
-
-      </section>
-
-
-      <!-- ===================================================== -->
-      <!-- TRENDING -->
-      <!-- ===================================================== -->
-
-      <section
-        id="trending"
-        class="border-y border-[#d9ad55]/20 bg-black/20 px-5 py-20 lg:px-10"
-      >
-
-        <div
-          class="mx-auto max-w-7xl"
+      {!searchQuery && (
+        <section
+          id="people"
+          class="px-5 py-20 lg:px-10"
         >
 
           <div
-            class="mb-12 text-center"
+            class="mx-auto max-w-7xl"
+          >
+
+            <div
+              class="mb-12 text-center"
+            >
+
+              <p
+                class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
+              >
+                FIND YOUR PEOPLE
+              </p>
+
+
+              <h2
+                class="mt-4 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
+              >
+                People to Follow
+              </h2>
+
+
+              <div
+                class="gold-line mx-auto mt-6 w-28"
+              ></div>
+
+
+              <p
+                class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55"
+              >
+                Discover members of Melagram
+                and build your network.
+              </p>
+
+            </div>
+
+
+            {members.length > 0 ? (
+
+              <div
+                class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              >
+
+                {members.slice(0, 8).map(
+                  (member) => {
+
+                    const displayName =
+                      member.full_name?.trim() ||
+                      member.username ||
+                      "Melagram Member";
+
+                    const username =
+                      member.username ||
+                      "member";
+
+                    const bio =
+                      member.bio?.trim() ||
+                      "Welcome to Melagram. Connect, network, create, and build community.";
+
+                    const isFollowing =
+                      followingIds.has(
+                        member.id
+                      );
+
+                    const initials =
+                      displayName
+                        .split(" ")
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map(
+                          (name) =>
+                            name[0]
+                        )
+                        .join("")
+                        .toUpperCase();
+
+                    return (
+
+                      <article
+                        class="luxury-panel gold-border rounded-2xl p-6 text-center transition hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(109,25,201,.25)]"
+                      >
+
+                        {member.avatar_url ? (
+
+                          <img
+                            src={member.avatar_url}
+                            alt={`${displayName} profile`}
+                            class="mx-auto h-24 w-24 rounded-full border-2 border-[#d9ad55]/70 object-cover"
+                          />
+
+                        ) : (
+
+                          <div
+                            class="mx-auto flex h-24 w-24 items-center justify-center rounded-full border-2 border-[#d9ad55]/70 bg-[radial-gradient(circle_at_center,rgba(109,25,201,.55),rgba(7,3,12,.98)_70%)] text-2xl font-semibold tracking-widest text-[#ffe8a6]"
+                          >
+                            {initials}
+                          </div>
+
+                        )}
+
+
+                        <h3
+                          class="mt-5 font-serif text-2xl text-[#ffe8a6]"
+                        >
+                          {displayName}
+                        </h3>
+
+
+                        <p
+                          class="mt-1 text-xs text-white/40"
+                        >
+                          @{username}
+                        </p>
+
+
+                        <p
+                          class="mt-4 min-h-[72px] text-sm leading-7 text-white/55"
+                        >
+                          {bio}
+                        </p>
+
+
+                        <div
+                          class="mt-6 grid gap-3"
+                        >
+
+                          <a
+                            href={`/members/${username}`}
+                            class="flex min-h-[48px] items-center justify-center rounded-xl border border-[#d9ad55]/50 px-4 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#24102f]"
+                          >
+                            View Profile
+                          </a>
+
+
+                          {currentUser && (
+                            <button
+                              type="button"
+                              class:list={[
+                                "followMemberButton",
+                                "flex",
+                                "min-h-[48px]",
+                                "items-center",
+                                "justify-center",
+                                "rounded-xl",
+                                "px-4",
+                                "py-3",
+                                "text-xs",
+                                "font-bold",
+                                "uppercase",
+                                "tracking-widest",
+                                "transition",
+                                isFollowing
+                                  ? [
+                                      "border",
+                                      "border-[#d9ad55]/60",
+                                      "bg-[#24102f]",
+                                      "text-[#ffe8a6]",
+                                    ]
+                                  : [
+                                      "cta",
+                                      "text-white",
+                                    ],
+                              ]}
+                              data-user-id={member.id}
+                              data-following={
+                                isFollowing
+                                  ? "true"
+                                  : "false"
+                              }
+                            >
+                              {isFollowing
+                                ? "Following"
+                                : "Follow"}
+                            </button>
+                          )}
+
+                        </div>
+
+                      </article>
+
+                    );
+
+                  }
+                )}
+
+              </div>
+
+            ) : (
+
+              <div
+                class="luxury-panel gold-border mx-auto max-w-2xl rounded-2xl p-10 text-center"
+              >
+
+                <div class="text-4xl">
+                  👥
+                </div>
+
+                <h3
+                  class="mt-5 font-serif text-3xl text-[#ffe8a6]"
+                >
+                  You're early.
+                </h3>
+
+                <p
+                  class="mt-4 text-sm leading-7 text-white/55"
+                >
+                  As more people join Melagram,
+                  you'll see members here that you
+                  can connect with and follow.
+                </p>
+
+              </div>
+
+            )}
+
+          </div>
+
+        </section>
+      )}
+
+
+      <!-- TRENDING CONVERSATIONS -->
+
+      {!searchQuery && (
+        <section
+          id="trending"
+          class="border-y border-[#d9ad55]/20 bg-black/20 px-5 py-20 lg:px-10"
+        >
+
+          <div
+            class="mx-auto max-w-7xl"
+          >
+
+            <div
+              class="mb-12 text-center"
+            >
+
+              <p
+                class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
+              >
+                WHAT'S HAPPENING
+              </p>
+
+
+              <h2
+                class="mt-4 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
+              >
+                Trending Conversations
+              </h2>
+
+
+              <div
+                class="gold-line mx-auto mt-6 w-28"
+              ></div>
+
+
+              <p
+                class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55"
+              >
+                The conversations getting the most
+                engagement across Melagram.
+              </p>
+
+            </div>
+
+
+            {trending.length > 0 ? (
+
+              <div
+                class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+              >
+
+                {trending.map((post) => {
+
+                  const profile =
+                    Array.isArray(
+                      post.profiles
+                    )
+                      ? post.profiles[0]
+                      : post.profiles;
+
+                  const displayName =
+                    profile?.full_name?.trim() ||
+                    profile?.username ||
+                    "Melagram Member";
+
+                  const username =
+                    profile?.username ||
+                    "member";
+
+                  const community =
+                    post.community_slug
+                      ? communityBySlug.get(
+                          post.community_slug
+                        )
+                      : null;
+
+                  const likes =
+                    likeCounts.get(
+                      post.id
+                    ) ?? 0;
+
+                  const comments =
+                    commentCounts.get(
+                      post.id
+                    ) ?? 0;
+
+                  return (
+
+                    <article
+                      class="luxury-panel gold-border overflow-hidden rounded-2xl transition hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(109,25,201,.2)]"
+                    >
+
+                      {post.image_url && (
+                        <img
+                          src={post.image_url}
+                          alt="Image shared in a Melagram post"
+                          class="h-52 w-full object-cover"
+                          loading="lazy"
+                        />
+                      )}
+
+
+                      <div class="p-6">
+
+                        <div
+                          class="flex items-center gap-3"
+                        >
+
+                          {profile?.avatar_url ? (
+
+                            <img
+                              src={profile.avatar_url}
+                              alt={`${displayName} profile`}
+                              class="h-10 w-10 rounded-full border border-[#d9ad55]/60 object-cover"
+                            />
+
+                          ) : (
+
+                            <div
+                              class="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d9ad55]/60 bg-[#160722] text-xs font-bold text-[#ffe8a6]"
+                            >
+                              {displayName
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </div>
+
+                          )}
+
+
+                          <div
+                            class="min-w-0"
+                          >
+
+                            <p
+                              class="truncate text-sm font-semibold text-[#ffe8a6]"
+                            >
+                              {displayName}
+                            </p>
+
+                            <p
+                              class="truncate text-xs text-white/35"
+                            >
+                              @{username}
+                            </p>
+
+                          </div>
+
+                        </div>
+
+
+                        <p
+                          class="mt-5 whitespace-pre-wrap break-words text-sm leading-7 text-white/65"
+                        >
+                          {post.content}
+                        </p>
+
+
+                        {community && (
+                          <a
+                            href={`/communities/${community.slug}`}
+                            class="mt-5 inline-flex rounded-full border border-[#d9ad55]/30 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-[#d9ad55] transition hover:border-[#d9ad55] hover:text-[#ffe8a6]"
+                          >
+                            {communityIcons[
+                              community.slug
+                            ] || "◈"}
+                            <span class="ml-1">
+                              {community.name}
+                            </span>
+                          </a>
+                        )}
+
+
+                        <div
+                          class="mt-5 flex items-center justify-between border-t border-[#d9ad55]/15 pt-4"
+                        >
+
+                          <div
+                            class="flex items-center gap-4 text-xs text-white/35"
+                          >
+
+                            <span>
+                              ♥ {likes}
+                            </span>
+
+                            <span>
+                              ○ {comments}
+                            </span>
+
+                          </div>
+
+
+                          <a
+                            href={`/dashboard#post-${post.id}`}
+                            class="text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:text-white"
+                          >
+                            View Post →
+                          </a>
+
+                        </div>
+
+                      </div>
+
+                    </article>
+
+                  );
+
+                })}
+
+              </div>
+
+            ) : (
+
+              <div
+                class="luxury-panel gold-border mx-auto max-w-2xl rounded-2xl p-10 text-center"
+              >
+
+                <div class="text-4xl">
+                  💬
+                </div>
+
+                <h3
+                  class="mt-5 font-serif text-3xl text-[#ffe8a6]"
+                >
+                  Conversations are coming.
+                </h3>
+
+                <p
+                  class="mt-4 text-sm leading-7 text-white/55"
+                >
+                  Once people start posting,
+                  the most active conversations
+                  will appear here.
+                </p>
+
+              </div>
+
+            )}
+
+          </div>
+
+        </section>
+      )}
+
+
+      <!-- POPULAR COMMUNITIES -->
+
+      {!searchQuery && (
+        <section
+          class="px-5 py-20 lg:px-10"
+        >
+
+          <div
+            class="mx-auto max-w-7xl"
+          >
+
+            <div
+              class="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+            >
+
+              <div>
+
+                <p
+                  class="text-[10px] font-bold uppercase tracking-[.45em] text-[#d9ad55]"
+                >
+                  FIND YOUR SPACE
+                </p>
+
+                <h2
+                  class="mt-3 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
+                >
+                  Popular Communities
+                </h2>
+
+              </div>
+
+
+              <a
+                href="/communities"
+                class="text-xs font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:text-white"
+              >
+                View All Communities →
+              </a>
+
+            </div>
+
+
+            {communityList.length > 0 ? (
+
+              <div
+                class="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+              >
+
+                {communityList
+                  .slice(0, 6)
+                  .map(
+                    (community) => {
+
+                      const count =
+                        communityMemberCounts.get(
+                          community.id
+                        ) ?? 0;
+
+                      return (
+
+                        <a
+                          href={`/communities/${community.slug}`}
+                          class="luxury-panel gold-border block rounded-2xl p-7 transition hover:-translate-y-1 hover:bg-[#6d19c9]/10 hover:shadow-[0_0_30px_rgba(109,25,201,.2)]"
+                        >
+
+                          <div
+                            class="flex items-start justify-between gap-4"
+                          >
+
+                            <div
+                              class="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-[#d9ad55]/60 bg-[#160722] text-2xl"
+                            >
+                              {communityIcons[
+                                community.slug
+                              ] || "◈"}
+                            </div>
+
+
+                            <span
+                              class="rounded-full border border-[#d9ad55]/25 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-[#d9ad55]"
+                            >
+                              {community.category}
+                            </span>
+
+                          </div>
+
+
+                          <h3
+                            class="mt-6 font-serif text-2xl text-[#ffe8a6]"
+                          >
+                            {community.name}
+                          </h3>
+
+
+                          <p
+                            class="mt-3 line-clamp-3 text-sm leading-7 text-white/50"
+                          >
+                            {community.description}
+                          </p>
+
+
+                          <div
+                            class="mt-6 flex items-center justify-between border-t border-[#d9ad55]/15 pt-5"
+                          >
+
+                            <span
+                              class="text-[10px] uppercase tracking-wider text-white/35"
+                            >
+                              {count} {count === 1
+                                ? "member"
+                                : "members"}
+                            </span>
+
+
+                            <span
+                              class="rounded-lg border border-[#d9ad55]/60 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6]"
+                            >
+                              Explore →
+                            </span>
+
+                          </div>
+
+                        </a>
+
+                      );
+
+                    }
+                  )}
+
+              </div>
+
+            ) : (
+
+              <div
+                class="luxury-panel gold-border mx-auto max-w-2xl rounded-2xl p-10 text-center"
+              >
+
+                <p class="text-white/50">
+                  Communities are coming soon.
+                </p>
+
+              </div>
+
+            )}
+
+          </div>
+
+        </section>
+      )}
+
+
+      <!-- CREATOR DISCOVERY -->
+
+      {!searchQuery && (
+        <section
+          class="border-y border-[#d9ad55]/20 bg-black/20 px-5 py-20 lg:px-10"
+        >
+
+          <div
+            class="mx-auto max-w-7xl"
+          >
+
+            <div
+              class="mb-12 text-center"
+            >
+
+              <p
+                class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
+              >
+                CREATIVE VOICES
+              </p>
+
+
+              <h2
+                class="mt-4 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
+              >
+                Discover Creators
+              </h2>
+
+
+              <div
+                class="gold-line mx-auto mt-6 w-28"
+              ></div>
+
+
+              <p
+                class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55"
+              >
+                Explore the creative categories
+                represented inside the Melagram
+                Creators Vault.
+              </p>
+
+            </div>
+
+
+            <div
+              class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
+            >
+
+              {creatorCategories.map(
+                (category) => (
+
+                  <a
+                    href="/creators#collection"
+                    class="luxury-panel gold-border rounded-2xl p-7 text-center transition hover:-translate-y-1 hover:bg-[#6d19c9]/10"
+                  >
+
+                    <div
+                      class="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-2xl text-[#ffe8a6]"
+                    >
+                      {category.icon}
+                    </div>
+
+
+                    <h3
+                      class="mt-5 font-serif text-2xl text-[#ffe8a6]"
+                    >
+                      {category.title}
+                    </h3>
+
+
+                    <p
+                      class="mt-3 text-sm leading-7 text-white/50"
+                    >
+                      {category.text}
+                    </p>
+
+
+                    <span
+                      class="mt-5 inline-block text-[9px] font-bold uppercase tracking-[.2em] text-[#d9ad55]"
+                    >
+                      Enter Vault →
+                    </span>
+
+                  </a>
+
+                )
+              )}
+
+            </div>
+
+          </div>
+
+        </section>
+      )}
+
+
+      <!-- FINAL CTA -->
+
+      {!searchQuery && (
+        <section
+          class="px-5 py-20 lg:px-10"
+        >
+
+          <div
+            class="luxury-panel gold-border mx-auto max-w-5xl rounded-3xl p-10 text-center sm:p-14"
           >
 
             <p
               class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
             >
-              WHAT'S HAPPENING
+              KEEP EXPLORING
             </p>
 
 
             <h2
-              class="mt-4 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
+              class="mt-5 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
             >
-              Trending Now
+              There's more to discover.
             </h2>
-
-
-            <div
-              class="gold-line mx-auto mt-6 w-28"
-            ></div>
 
 
             <p
               class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55"
             >
-              Melagram is growing. More conversations,
-              communities, creators, and connections are
-              coming every day.
+              Find your people. Join your communities.
+              Follow conversations. Discover creators.
+              Make Melagram yours.
             </p>
 
-          </div>
-
-
-          <div
-            class="grid gap-6 md:grid-cols-3"
-          >
 
             <div
-              class="luxury-panel gold-border rounded-2xl p-7"
+              class="mt-8 flex flex-col justify-center gap-3 sm:flex-row"
             >
 
-              <div
-                class="mb-5 text-3xl"
+              <a
+                href="/communities"
+                class="cta inline-flex justify-center rounded-xl px-7 py-3 text-xs font-bold uppercase tracking-widest text-white"
               >
-                💬
-              </div>
+                Explore Communities
+              </a>
 
-              <p
-                class="text-xs font-bold uppercase tracking-[0.25em] text-[#d9ad55]"
+
+              <a
+                href="/creators"
+                class="inline-flex justify-center rounded-xl border border-[#d9ad55]/50 px-7 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#24102f]"
               >
-                Conversations
-              </p>
+                Visit Creators
+              </a>
 
-              <h3
-                class="mt-3 font-serif text-2xl text-[#ffe8a6]"
+
+              <a
+                href="/"
+                class="inline-flex justify-center rounded-xl border border-[#d9ad55]/50 px-7 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#24102f]"
               >
-                Speak your mind.
-              </h3>
-
-              <p
-                class="mt-3 text-sm leading-7 text-white/55"
-              >
-                Share what's on your mind and
-                join conversations that matter.
-              </p>
-
-            </div>
-
-
-            <div
-              class="luxury-panel gold-border rounded-2xl p-7"
-            >
-
-              <div
-                class="mb-5 text-3xl"
-              >
-                👥
-              </div>
-
-              <p
-                class="text-xs font-bold uppercase tracking-[0.25em] text-[#d9ad55]"
-              >
-                Community
-              </p>
-
-              <h3
-                class="mt-3 font-serif text-2xl text-[#ffe8a6]"
-              >
-                Find your people.
-              </h3>
-
-              <p
-                class="mt-3 text-sm leading-7 text-white/55"
-              >
-                Discover communities where
-                conversations can become connections.
-              </p>
-
-            </div>
-
-
-            <div
-              class="luxury-panel gold-border rounded-2xl p-7"
-            >
-
-              <div
-                class="mb-5 text-3xl"
-              >
-                ✨
-              </div>
-
-              <p
-                class="text-xs font-bold uppercase tracking-[0.25em] text-[#d9ad55]"
-              >
-                Creators
-              </p>
-
-              <h3
-                class="mt-3 font-serif text-2xl text-[#ffe8a6]"
-              >
-                Create something great.
-              </h3>
-
-              <p
-                class="mt-3 text-sm leading-7 text-white/55"
-              >
-                Discover creative voices and
-                make room for your own.
-              </p>
+                Return Home
+              </a>
 
             </div>
 
           </div>
 
-        </div>
-
-      </section>
-
-
-      <!-- ===================================================== -->
-      <!-- MORE TO DISCOVER -->
-      <!-- ===================================================== -->
-
-      <section
-        class="px-5 py-20 lg:px-10"
-      >
-
-        <div
-          class="luxury-panel gold-border mx-auto max-w-5xl rounded-3xl p-10 text-center sm:p-14"
-        >
-
-          <p
-            class="text-[10px] font-bold uppercase tracking-[0.5em] text-[#d9ad55]"
-          >
-            KEEP EXPLORING
-          </p>
-
-
-          <h2
-            class="mt-5 font-serif text-4xl text-[#fff4d4] sm:text-5xl"
-          >
-            There’s more to discover.
-          </h2>
-
-
-          <p
-            class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/55"
-          >
-            Explore communities, meet creators,
-            discover new members, and keep building
-            your Melagram network.
-          </p>
-
-
-          <div
-            class="mt-8 flex flex-col justify-center gap-3 sm:flex-row"
-          >
-
-            <a
-              href="/communities"
-              class="cta inline-flex justify-center rounded-xl px-7 py-3 text-xs font-bold uppercase tracking-widest text-white"
-            >
-              Explore Communities
-            </a>
-
-
-            <a
-              href="/creators"
-              class="inline-flex justify-center rounded-xl border border-[#d9ad55]/50 px-7 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#24102f]"
-            >
-              Visit Creators
-            </a>
-
-
-            <a
-              href="/"
-              class="inline-flex justify-center rounded-xl border border-[#d9ad55]/50 px-7 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#24102f]"
-            >
-              Return Home
-            </a>
-
-          </div>
-
-        </div>
-
-      </section>
+        </section>
+      )}
 
     </main>
 
 
-    <!-- ===================================================== -->
     <!-- FOOTER -->
-    <!-- ===================================================== -->
 
     <footer
       class="border-t border-[#d9ad55]/20 bg-[#050208]"
@@ -961,9 +1789,7 @@ const categories = [
     </footer>
 
 
-    <!-- ===================================================== -->
     <!-- FOLLOW INTERACTIONS -->
-    <!-- ===================================================== -->
 
     <script>
 
