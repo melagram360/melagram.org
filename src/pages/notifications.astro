@@ -1,11 +1,11 @@
 ---
 import "../styles/global.css";
 import { createClient } from "../lib/supabase";
+import { actions } from "astro:actions";
 
 const supabase = createClient({
   request: Astro.request,
   cookies: Astro.cookies,
-  env: Astro.locals.runtime.env,
 });
 
 const {
@@ -13,10 +13,30 @@ const {
 } = await supabase.auth.getUser();
 
 if (!user) {
-  return Astro.redirect("/auth/login");
+  return Astro.redirect("/login");
 }
 
-const { data: notifications, error } = await supabase
+const displayName =
+  user.user_metadata?.full_name ||
+  user.user_metadata?.username ||
+  user.email?.split("@")[0] ||
+  "Member";
+
+const signOutResult =
+  Astro.getActionResult(actions.signOut);
+
+if (signOutResult?.data?.success) {
+  return Astro.redirect("/");
+}
+
+/* --------------------------------
+   NOTIFICATIONS
+--------------------------------- */
+
+const {
+  data: notifications,
+  error,
+} = await supabase
   .from("notifications")
   .select(`
     id,
@@ -33,53 +53,80 @@ const { data: notifications, error } = await supabase
     )
   `)
   .eq("recipient_id", user.id)
-  .order("created_at", { ascending: false });
+  .order("created_at", {
+    ascending: false,
+  });
 
-const notificationList = notifications || [];
+const notificationList =
+  notifications ?? [];
 
-function getNotificationIcon(type: string) {
-  if (type === "like") return "❤️";
-  if (type === "comment") return "💬";
-  if (type === "follow") return "👤";
-  return "🔔";
+const unreadNotificationCount =
+  notificationList.filter(
+    (notification) =>
+      !notification.is_read
+  ).length;
+
+
+/* --------------------------------
+   HELPERS
+--------------------------------- */
+
+function getNotificationIcon(
+  type: string
+) {
+  if (type === "like") {
+    return "♥";
+  }
+
+  if (type === "comment") {
+    return "○";
+  }
+
+  if (type === "follow") {
+    return "✦";
+  }
+
+  return "◆";
 }
+
 
 function getNotificationUrl(
   type: string,
   postId: string | null,
   username: string | null
 ) {
-  /*
-    Follow notifications go to the actor's profile.
-  */
-  if (type === "follow" && username) {
+  if (
+    type === "follow" &&
+    username
+  ) {
     return `/members/${username}`;
   }
 
-  /*
-    Like and comment notifications go directly
-    to the post on the authenticated dashboard.
-  */
   if (
-    (type === "like" || type === "comment") &&
+    (type === "like" ||
+      type === "comment") &&
     postId
   ) {
     return `/dashboard#post-${postId}`;
   }
 
-  /*
-    Fallback for notifications without
-    a destination.
-  */
   return "/notifications";
 }
 
-function formatTime(dateString: string) {
-  const date = new Date(dateString);
+
+function formatTime(
+  dateString: string
+) {
+  const date = new Date(
+    dateString
+  );
+
   const now = new Date();
 
   const diff = Math.floor(
-    (now.getTime() - date.getTime()) / 1000
+    (now.getTime() -
+      date.getTime()) /
+      1000
   );
 
   if (diff < 60) {
@@ -87,161 +134,349 @@ function formatTime(dateString: string) {
   }
 
   if (diff < 3600) {
-    const minutes = Math.floor(diff / 60);
+    const minutes = Math.floor(
+      diff / 60
+    );
+
     return `${minutes}m ago`;
   }
 
   if (diff < 86400) {
-    const hours = Math.floor(diff / 3600);
+    const hours = Math.floor(
+      diff / 3600
+    );
+
     return `${hours}h ago`;
   }
 
   if (diff < 604800) {
-    const days = Math.floor(diff / 86400);
+    const days = Math.floor(
+      diff / 86400
+    );
+
     return `${days}d ago`;
   }
 
-  return date.toLocaleDateString();
+  return date.toLocaleDateString(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }
+  );
 }
 ---
 
 <html lang="en">
+
   <head>
+
     <meta charset="UTF-8" />
 
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0"
+      content="width=device-width"
     />
 
     <title>
       Notifications | Melagram
     </title>
+
   </head>
 
+
   <body
-    class="min-h-screen bg-black text-white"
+    class="min-h-screen bg-[#050208] text-[#fff7e5]"
   >
 
     <main
-      class="mx-auto min-h-screen w-full max-w-3xl px-4 py-8 sm:px-6"
+      class="min-h-screen"
     >
 
-      <!-- ========================================= -->
-      <!-- HEADER -->
-      <!-- ========================================= -->
+      <!-- ================================================= -->
+      <!-- NAVIGATION -->
+      <!-- ================================================= -->
 
-      <div
-        class="mb-8 flex items-center justify-between gap-4"
+      <nav
+        class="border-b border-[#d9ad55]/20 bg-black/40 backdrop-blur-xl"
       >
 
-        <div>
+        <div
+          class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8"
+        >
 
           <a
-            href="/dashboard"
-            class="mb-3 inline-flex items-center gap-2 text-sm text-purple-300 transition hover:text-white"
+            href="/"
+            class="flex items-center gap-3"
           >
-            ← Back to Melagram
+
+            <div
+              class="flex h-10 w-10 items-center justify-center rounded-full border border-[#d9ad55]/60 bg-[#6d19c9]/20 text-lg font-semibold text-[#ffe8a6]"
+            >
+              M
+            </div>
+
+            <span
+              class="font-['Cinzel'] text-lg tracking-[0.18em] text-[#ffe8a6]"
+            >
+              MELAGRAM
+            </span>
+
           </a>
 
 
-          <h1
-            class="text-3xl font-bold text-white sm:text-4xl"
+          <div
+            class="hidden items-center gap-7 text-sm text-white/70 md:flex"
           >
-            🔔 Notifications
-          </h1>
+
+            <a
+              href="/discover"
+              class="nav-link"
+            >
+              Discover
+            </a>
+
+            <a
+              href="/communities"
+              class="nav-link"
+            >
+              Communities
+            </a>
+
+            <a
+              href="/creators"
+              class="nav-link"
+            >
+              Creators
+            </a>
+
+          </div>
 
 
-          <p
-            class="mt-2 text-sm text-gray-400"
+          <div
+            class="flex items-center gap-2"
           >
-            Stay up to date with what is happening
-            around your profile.
-          </p>
+
+            <a
+              href="/notifications"
+              aria-label="Notifications"
+              class="relative inline-flex items-center justify-center rounded-full border border-[#d9ad55]/50 px-3 py-2 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+            >
+
+              <span aria-hidden="true">
+                🔔
+              </span>
+
+              <span
+                class="ml-1 hidden sm:inline"
+              >
+                Notifications
+              </span>
+
+
+              {unreadNotificationCount > 0 && (
+
+                <span
+                  class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6d19c9] px-1 text-[10px] font-bold text-white ring-2 ring-black"
+                >
+                  {unreadNotificationCount > 99
+                    ? "99+"
+                    : unreadNotificationCount}
+                </span>
+
+              )}
+
+            </a>
+
+
+            <a
+              href="/profile"
+              class="rounded-full border border-[#d9ad55]/50 px-4 py-2 text-sm text-[#ffe8a6] transition hover:bg-[#d9ad55]/10"
+            >
+              {displayName}
+            </a>
+
+
+            <button
+              id="signout-btn"
+              type="button"
+              class="rounded-full border border-white/15 px-4 py-2 text-sm text-white/60 transition hover:border-[#d9ad55]/50 hover:text-[#ffe8a6]"
+            >
+              Sign Out
+            </button>
+
+          </div>
 
         </div>
 
-
-        {
-          notificationList.some(
-            (notification) =>
-              !notification.is_read
-          ) && (
-
-            <button
-              id="markAllReadButton"
-              type="button"
-              class="rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-2 text-sm font-semibold text-yellow-300 transition hover:bg-yellow-500/20"
-            >
-              Mark all read
-            </button>
-
-          )
-        }
-
-      </div>
+      </nav>
 
 
-      <!-- ========================================= -->
-      <!-- NOTIFICATION LIST -->
-      <!-- ========================================= -->
+      <!-- ================================================= -->
+      <!-- PAGE HEADER -->
+      <!-- ================================================= -->
 
-      {
-        error ? (
+      <section
+        class="relative overflow-hidden"
+      >
 
-          <section
-            class="rounded-2xl border border-red-500/30 bg-red-500/10 p-6"
+        <div
+          class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(109,25,201,.28),transparent_42rem)]"
+        ></div>
+
+
+        <div
+          class="relative mx-auto max-w-5xl px-5 py-12 sm:px-8 lg:py-16"
+        >
+
+          <div
+            class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between"
           >
 
+            <div>
+
+              <a
+                href="/dashboard"
+                class="mb-5 inline-flex items-center gap-2 text-sm text-[#d9ad55] transition hover:text-[#ffe8a6]"
+              >
+                ← Back to Dashboard
+              </a>
+
+
+              <p
+                class="text-xs font-semibold uppercase tracking-[0.35em] text-[#d9ad55]"
+              >
+                Stay Connected
+              </p>
+
+
+              <h1
+                class="mt-3 text-4xl font-semibold leading-tight text-[#ffe8a6] sm:text-5xl"
+              >
+                Notifications
+              </h1>
+
+
+              <p
+                class="mt-4 max-w-2xl text-sm leading-7 text-white/55 sm:text-base"
+              >
+                Stay up to date with what is
+                happening around your Melagram.
+              </p>
+
+            </div>
+
+
+            {unreadNotificationCount > 0 && (
+
+              <button
+                id="markAllReadButton"
+                type="button"
+                class="inline-flex shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/50 bg-[#6d19c9]/15 px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#ffe8a6] transition hover:bg-[#6d19c9]/30"
+              >
+                Mark All Read
+              </button>
+
+            )}
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ================================================= -->
+      <!-- NOTIFICATION CONTENT -->
+      <!-- ================================================= -->
+
+      <section
+        class="mx-auto max-w-5xl px-5 pb-20 sm:px-8"
+      >
+
+        {error ? (
+
+          <section
+            class="gold-border luxury-panel rounded-2xl p-7 sm:p-9"
+          >
+
+            <div
+              class="gold-line mb-7"
+            ></div>
+
+
+            <div
+              class="flex h-14 w-14 items-center justify-center rounded-full border border-red-400/30 bg-red-500/10 text-xl text-red-300"
+            >
+              !
+            </div>
+
+
             <h2
-              class="text-lg font-semibold text-red-300"
+              class="mt-6 text-2xl text-[#ffe8a6]"
             >
               We couldn't load your notifications.
             </h2>
 
 
             <p
-              class="mt-2 text-sm text-gray-400"
+              class="mt-3 max-w-2xl text-sm leading-7 text-white/55"
             >
-              Please refresh the page and try again.
+              We had trouble retrieving your
+              notifications. Please refresh the
+              page and try again.
             </p>
+
+
+            <a
+              href="/dashboard"
+              class="cta mt-7 inline-flex rounded-full px-6 py-3 text-sm font-semibold text-white"
+            >
+              Back to Dashboard
+            </a>
 
           </section>
 
         ) : notificationList.length === 0 ? (
 
           <section
-            class="rounded-2xl border border-purple-500/20 bg-white/5 p-10 text-center shadow-2xl"
+            class="gold-border luxury-panel rounded-2xl p-8 text-center sm:p-12"
           >
 
             <div
-              class="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-purple-900/40 text-4xl"
+              class="gold-line mx-auto mb-8"
+            ></div>
+
+
+            <div
+              class="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#d9ad55]/40 bg-[#6d19c9]/15 text-3xl text-[#ffe8a6]"
             >
-              🔔
+              ◆
             </div>
 
 
             <h2
-              class="text-2xl font-bold text-white"
+              class="mt-7 text-3xl text-[#ffe8a6]"
             >
               You're all caught up!
             </h2>
 
 
             <p
-              class="mx-auto mt-3 max-w-md text-sm leading-6 text-gray-400"
+              class="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/55"
             >
-              When someone likes your post, comments
-              on your post, or follows you, you'll see
-              it right here.
+              When someone likes your post,
+              comments on your post, or follows
+              you, you'll see it right here.
             </p>
 
 
             <a
-              href="/dashboard"
-              class="mt-6 inline-flex rounded-xl bg-purple-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-600"
+              href="/discover"
+              class="cta mt-7 inline-flex rounded-full px-6 py-3 text-sm font-semibold text-white"
             >
-              Back to Dashboard
+              Discover People
             </a>
 
           </section>
@@ -249,11 +484,32 @@ function formatTime(dateString: string) {
         ) : (
 
           <section
-            class="overflow-hidden rounded-2xl border border-purple-500/20 bg-white/5 shadow-2xl"
+            class="gold-border luxury-panel overflow-hidden rounded-2xl"
           >
 
-            {
-              notificationList.map(
+            <div
+              class="border-b border-[#d9ad55]/15 px-6 py-5 sm:px-7"
+            >
+
+              <p
+                class="text-xs uppercase tracking-[0.25em] text-[#d9ad55]"
+              >
+                Activity
+              </p>
+
+
+              <h2
+                class="mt-2 text-2xl text-[#ffe8a6]"
+              >
+                Your Notifications
+              </h2>
+
+            </div>
+
+
+            <div>
+
+              {notificationList.map(
                 (notification) => {
 
                   const actor =
@@ -287,11 +543,20 @@ function formatTime(dateString: string) {
 
                     <a
                       href={url}
-                      class={`notification-item block border-b border-white/10 px-5 py-5 transition last:border-b-0 hover:bg-white/10 ${
+                      class:list={[
+                        "notification-item",
+                        "block",
+                        "border-b",
+                        "border-white/10",
+                        "px-5",
+                        "py-5",
+                        "transition",
+                        "last:border-b-0",
+                        "hover:bg-[#6d19c9]/10",
                         notification.is_read
                           ? "bg-transparent"
-                          : "bg-purple-900/20"
-                      }`}
+                          : "bg-[#6d19c9]/10",
+                      ]}
                       data-notification-id={
                         notification.id
                       }
@@ -301,43 +566,43 @@ function formatTime(dateString: string) {
                         class="flex items-start gap-4"
                       >
 
-                        <!-- Actor Avatar -->
+                        <!-- AVATAR -->
 
                         <div
-                          class="flex-shrink-0"
+                          class="shrink-0"
                         >
 
-                          {
-                            actor?.avatar_url ? (
+                          {actor?.avatar_url ? (
 
-                              <img
-                                src={actor.avatar_url}
-                                alt={actorName}
-                                class="h-12 w-12 rounded-full border border-purple-400/30 object-cover"
-                              />
+                            <img
+                              src={actor.avatar_url}
+                              alt={actorName}
+                              class="h-12 w-12 rounded-full border border-[#d9ad55]/40 object-cover"
+                            />
 
-                            ) : (
+                          ) : (
 
-                              <div
-                                class="flex h-12 w-12 items-center justify-center rounded-full border border-purple-400/30 bg-purple-900/50 text-xl"
-                              >
-                                👤
-                              </div>
+                            <div
+                              class="flex h-12 w-12 items-center justify-center rounded-full border border-[#d9ad55]/40 bg-[#6d19c9]/20 text-lg font-semibold text-[#ffe8a6]"
+                            >
+                              {actorName
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
 
-                            )
-                          }
+                          )}
 
                         </div>
 
 
-                        <!-- Notification Content -->
+                        <!-- CONTENT -->
 
                         <div
                           class="min-w-0 flex-1"
                         >
 
                           <div
-                            class="flex items-start justify-between gap-3"
+                            class="flex items-start justify-between gap-4"
                           >
 
                             <div
@@ -345,7 +610,7 @@ function formatTime(dateString: string) {
                             >
 
                               <span
-                                class="text-xl"
+                                class="flex h-8 w-8 items-center justify-center rounded-full border border-[#d9ad55]/20 bg-black/20 text-sm text-[#ffe8a6]"
                               >
                                 {
                                   getNotificationIcon(
@@ -355,21 +620,20 @@ function formatTime(dateString: string) {
                               </span>
 
 
-                              {
-                                !notification.is_read && (
+                              {!notification.is_read && (
 
-                                  <span
-                                    class="h-2.5 w-2.5 rounded-full bg-yellow-400"
-                                  ></span>
+                                <span
+                                  class="h-2.5 w-2.5 rounded-full bg-[#d9ad55]"
+                                  title="Unread"
+                                ></span>
 
-                                )
-                              }
+                              )}
 
                             </div>
 
 
                             <span
-                              class="whitespace-nowrap text-xs text-gray-500"
+                              class="whitespace-nowrap text-xs text-white/30"
                             >
                               {
                                 formatTime(
@@ -382,11 +646,11 @@ function formatTime(dateString: string) {
 
 
                           <p
-                            class="mt-2 text-sm leading-6 text-gray-200"
+                            class="mt-3 text-sm leading-7 text-white/75"
                           >
 
                             <span
-                              class="font-bold text-white"
+                              class="font-semibold text-[#ffe8a6]"
                             >
                               {actorName}
                             </span>
@@ -398,17 +662,15 @@ function formatTime(dateString: string) {
                           </p>
 
 
-                          {
-                            actorUsername && (
+                          {actorUsername && (
 
-                              <p
-                                class="mt-1 text-xs text-purple-300"
-                              >
-                                @{actorUsername}
-                              </p>
+                            <p
+                              class="mt-1 text-xs text-[#d9ad55]/70"
+                            >
+                              @{actorUsername}
+                            </p>
 
-                            )
-                          }
+                          )}
 
                         </div>
 
@@ -419,43 +681,154 @@ function formatTime(dateString: string) {
                   );
 
                 }
-              )
-            }
+              )}
+
+            </div>
 
           </section>
 
-        )
-      }
+        )}
+
+      </section>
+
+
+      <!-- ================================================= -->
+      <!-- FOOTER -->
+      <!-- ================================================= -->
+
+      <footer
+        class="border-t border-[#d9ad55]/15 px-5 py-8 sm:px-8"
+      >
+
+        <div
+          class="mx-auto flex max-w-5xl flex-col gap-3 text-sm text-white/40 sm:flex-row sm:items-center sm:justify-between"
+        >
+
+          <p>
+            © 2026 Melagram. Connect. Network.
+            Create. Build Community.
+          </p>
+
+
+          <div
+            class="flex gap-5"
+          >
+
+            <a
+              href="/terms"
+              class="transition hover:text-[#ffe8a6]"
+            >
+              Terms
+            </a>
+
+            <a
+              href="/privacy"
+              class="transition hover:text-[#ffe8a6]"
+            >
+              Privacy
+            </a>
+
+            <a
+              href="/"
+              class="text-[#d9ad55] transition hover:text-[#ffe8a6]"
+            >
+              Home
+            </a>
+
+          </div>
+
+        </div>
+
+      </footer>
 
     </main>
 
 
-    <!-- ========================================= -->
-    <!-- MARK ALL READ -->
-    <!-- ========================================= -->
+    <!-- ================================================= -->
+    <!-- CLIENT INTERACTIONS -->
+    <!-- ================================================= -->
 
     <script>
+
+      import { actions } from "astro:actions";
+
+
+      /* --------------------------------
+         SIGN OUT
+      --------------------------------- */
+
+      const signOutButton =
+        document.getElementById(
+          "signout-btn"
+        ) as HTMLButtonElement | null;
+
+
+      signOutButton?.addEventListener(
+        "click",
+        async () => {
+
+          signOutButton.disabled =
+            true;
+
+          signOutButton.textContent =
+            "Signing Out...";
+
+
+          const {
+            data,
+            error,
+          } =
+            await actions.signOut();
+
+
+          if (
+            error ||
+            !data?.success
+          ) {
+
+            signOutButton.disabled =
+              false;
+
+            signOutButton.textContent =
+              "Sign Out";
+
+            alert(
+              "We couldn't sign you out. Please try again."
+            );
+
+            return;
+          }
+
+
+          window.location.href =
+            "/";
+
+        }
+      );
+
+
+      /* --------------------------------
+         MARK ALL READ
+      --------------------------------- */
 
       const markAllReadButton =
         document.getElementById(
           "markAllReadButton"
-        );
+        ) as HTMLButtonElement | null;
 
 
-      if (markAllReadButton) {
+      markAllReadButton?.addEventListener(
+        "click",
+        async () => {
 
-        markAllReadButton.addEventListener(
-          "click",
-          async () => {
+          markAllReadButton.disabled =
+            true;
 
-            markAllReadButton.setAttribute(
-              "disabled",
-              "true"
-            );
+          markAllReadButton.textContent =
+            "Marking...";
 
-            markAllReadButton.textContent =
-              "Marking...";
 
+          try {
 
             const response =
               await fetch(
@@ -472,26 +845,45 @@ function formatTime(dateString: string) {
 
             } else {
 
-              markAllReadButton.removeAttribute(
-                "disabled"
-              );
+              markAllReadButton.disabled =
+                false;
 
               markAllReadButton.textContent =
-                "Mark all read";
+                "Mark All Read";
 
 
               alert(
-                "We couldn't mark your notifications as read."
+                "We couldn't mark your notifications as read. Please try again."
               );
 
             }
 
-          }
-        );
+          } catch (error) {
 
-      }
+            console.error(
+              "Mark all read error:",
+              error
+            );
+
+
+            markAllReadButton.disabled =
+              false;
+
+            markAllReadButton.textContent =
+              "Mark All Read";
+
+
+            alert(
+              "We couldn't mark your notifications as read. Please try again."
+            );
+
+          }
+
+        }
+      );
 
     </script>
 
   </body>
+
 </html>
