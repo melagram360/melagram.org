@@ -90,11 +90,13 @@ export const GET: APIRoute = async ({ request, cookies, url, locals }) => {
     .select("conversation_id, user_id")
     .in("conversation_id", ids);
 
-  const otherIds = [...new Set(
-    (participants ?? [])
-      .filter((row) => row.user_id !== user.id)
-      .map((row) => row.user_id)
-  )];
+  const otherIds = [
+    ...new Set(
+      (participants ?? [])
+        .filter((row) => row.user_id !== user.id)
+        .map((row) => row.user_id)
+    ),
+  ];
 
   const { data: profiles } = otherIds.length
     ? await supabase
@@ -107,13 +109,33 @@ export const GET: APIRoute = async ({ request, cookies, url, locals }) => {
   const participantMap = new Map<string, string>();
 
   for (const row of participants ?? []) {
-    if (row.user_id !== user.id) participantMap.set(row.conversation_id, row.user_id);
+    if (row.user_id !== user.id) {
+      participantMap.set(row.conversation_id, row.user_id);
+    }
   }
 
-  const results = (conversations ?? []).map((conversation) => ({
-    ...conversation,
-    otherUser: profileMap.get(participantMap.get(conversation.id) || "") ?? null,
-  }));
+  const results = await Promise.all(
+    (conversations ?? []).map(async (conversation) => {
+      const { count: unreadCount } = await supabase
+        .from("messages")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("conversation_id", conversation.id)
+        .neq("sender_id", user.id)
+        .is("read_at", null);
+
+      return {
+        ...conversation,
+        otherUser:
+          profileMap.get(
+            participantMap.get(conversation.id) || ""
+          ) ?? null,
+        unreadCount: unreadCount ?? 0,
+      };
+    })
+  );
 
   return json({ conversations: results });
 };
@@ -132,6 +154,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
   if (!user) return json({ error: "Unauthorized" }, 401);
 
   let body: any;
+
   try {
     body = await request.json();
   } catch {
@@ -142,6 +165,7 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
 
   if (action === "start") {
     const recipientId = String(body.recipientId || "");
+
     if (!recipientId || recipientId === user.id) {
       return json({ error: "Invalid recipient" }, 400);
     }
@@ -167,14 +191,18 @@ export const POST: APIRoute = async ({ request, cookies, locals }) => {
     // Create the direct conversation atomically through a SECURITY DEFINER RPC.
     // This avoids RLS policy recursion/participant-insert issues while still
     // verifying the signed-in user inside the database function.
-    const { data: conversationId, error: conversationError } = await supabase.rpc(
-      "create_direct_conversation",
-      { p_recipient_id: recipientId }
-    );
+    const { data: conversationId, error: conversationError } =
+      await supabase.rpc("create_direct_conversation", {
+        p_recipient_id: recipientId,
+      });
 
     if (conversationError || !conversationId) {
       return json(
-        { error: conversationError?.message || "Could not create conversation" },
+        {
+          error:
+            conversationError?.message ||
+            "Could not create conversation",
+        },
         500
       );
     }

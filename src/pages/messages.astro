@@ -91,6 +91,7 @@ const displayName =
             <p class="mb-3 text-[9px] font-bold uppercase tracking-[.3em] text-[#d9ad55]">
               Conversations
             </p>
+
             <div id="conversation-list" class="space-y-2">
               <p class="rounded-xl border border-white/5 bg-black/20 p-4 text-sm text-white/35">
                 Loading conversations...
@@ -126,6 +127,7 @@ const displayName =
                   placeholder="Write a message..."
                   class="min-h-[58px] flex-1 resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-[#d9ad55]/60"
                 ></textarea>
+
                 <button
                   type="submit"
                   class="self-end rounded-xl bg-[#6d19c9] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#7d27dc]"
@@ -133,6 +135,7 @@ const displayName =
                   Send
                 </button>
               </div>
+
               <p id="message-status" class="mt-2 text-xs text-white/35"></p>
             </form>
           </section>
@@ -177,7 +180,11 @@ const displayName =
       async function api(url, options = {}) {
         const response = await fetch(url, options);
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "Something went wrong.");
+
+        if (!response.ok) {
+          throw new Error(data.error || "Something went wrong.");
+        }
+
         return data;
       }
 
@@ -185,6 +192,7 @@ const displayName =
         if (person?.avatar_url) {
           return `<img src="${escapeHtml(person.avatar_url)}" alt="" class="h-11 w-11 rounded-full border border-[#d9ad55]/50 object-cover" />`;
         }
+
         return `<div class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#d9ad55]/50 bg-[#1a0827] text-xs font-bold text-[#ffe8a6]">${escapeHtml(initials(person))}</div>`;
       }
 
@@ -195,50 +203,110 @@ const displayName =
         }
 
         try {
-          const data = await api(`/api/messages?mode=users&q=${encodeURIComponent(query.trim())}`);
+          const data = await api(
+            `/api/messages?mode=users&q=${encodeURIComponent(query.trim())}`
+          );
+
           if (!data.users?.length) {
-            userResults.innerHTML = `<p class="rounded-xl border border-white/5 p-4 text-sm text-white/35">No members found.</p>`;
+            userResults.innerHTML = `
+              <p class="rounded-xl border border-white/5 p-4 text-sm text-white/35">
+                No members found.
+              </p>
+            `;
             return;
           }
 
-          userResults.innerHTML = data.users.map((person) => `
-            <button type="button" data-user-id="${escapeHtml(person.id)}"
-              class="user-result flex w-full items-center gap-3 rounded-xl border border-white/5 bg-black/20 p-3 text-left transition hover:border-[#d9ad55]/40 hover:bg-[#6d19c9]/10">
-              ${avatar(person)}
-              <span class="min-w-0">
-                <span class="block truncate text-sm font-semibold text-[#ffe8a6]">${escapeHtml(personName(person))}</span>
-                <span class="block truncate text-xs text-white/35">@${escapeHtml(person.username || "member")}</span>
-              </span>
-            </button>
-          `).join("");
+          userResults.innerHTML = data.users
+            .map(
+              (person) => `
+                <button
+                  type="button"
+                  data-user-id="${escapeHtml(person.id)}"
+                  class="user-result flex w-full items-center gap-3 rounded-xl border border-white/5 bg-black/20 p-3 text-left transition hover:border-[#d9ad55]/40 hover:bg-[#6d19c9]/10"
+                >
+                  ${avatar(person)}
+
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm font-semibold text-[#ffe8a6]">
+                      ${escapeHtml(personName(person))}
+                    </span>
+
+                    <span class="block truncate text-xs text-white/35">
+                      @${escapeHtml(person.username || "member")}
+                    </span>
+                  </span>
+                </button>
+              `
+            )
+            .join("");
         } catch (error) {
-          userResults.innerHTML = `<p class="text-xs text-red-300">${escapeHtml(error.message)}</p>`;
+          userResults.innerHTML = `
+            <p class="text-xs text-red-300">
+              ${escapeHtml(error.message)}
+            </p>
+          `;
         }
       }
 
       async function loadConversations() {
         try {
           const data = await api("/api/messages?mode=conversations");
+
           if (!data.conversations?.length) {
-            conversationList.innerHTML = `<p class="rounded-xl border border-white/5 bg-black/20 p-4 text-sm leading-6 text-white/35">No conversations yet.<br />Search for a member above.</p>`;
+            conversationList.innerHTML = `
+              <p class="rounded-xl border border-white/5 bg-black/20 p-4 text-sm leading-6 text-white/35">
+                No conversations yet.<br />
+                Search for a member above.
+              </p>
+            `;
             return;
           }
 
-          conversationList.innerHTML = data.conversations.map((conversation) => {
-            const person = conversation.otherUser;
-            return `
-              <button type="button" data-conversation-id="${escapeHtml(conversation.id)}"
-                class="conversation-item flex w-full items-center gap-3 rounded-xl border border-white/5 bg-black/20 p-3 text-left transition hover:border-[#d9ad55]/40 hover:bg-[#6d19c9]/10">
-                ${avatar(person)}
-                <span class="min-w-0 flex-1">
-                  <span class="block truncate text-sm font-semibold text-[#ffe8a6]">${escapeHtml(personName(person))}</span>
-                  <span class="block truncate text-xs text-white/35">@${escapeHtml(person?.username || "member")}</span>
-                </span>
-              </button>
-            `;
-          }).join("");
+          conversationList.innerHTML = data.conversations
+            .map((conversation) => {
+              const person = conversation.otherUser;
+              const unreadCount = Number(conversation.unreadCount || 0);
+
+              return `
+                <button
+                  type="button"
+                  data-conversation-id="${escapeHtml(conversation.id)}"
+                  class="conversation-item flex w-full items-center gap-3 rounded-xl border border-white/5 bg-black/20 p-3 text-left transition hover:border-[#d9ad55]/40 hover:bg-[#6d19c9]/10"
+                >
+                  ${avatar(person)}
+
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-sm font-semibold text-[#ffe8a6]">
+                      ${escapeHtml(personName(person))}
+                    </span>
+
+                    <span class="block truncate text-xs text-white/35">
+                      @${escapeHtml(person?.username || "member")}
+                    </span>
+                  </span>
+
+                  ${
+                    unreadCount > 0
+                      ? `
+                        <span
+                          class="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-[#6d19c9] px-2 text-[10px] font-bold text-white ring-1 ring-[#d9ad55]/40"
+                          title="${unreadCount} unread message${unreadCount === 1 ? "" : "s"}"
+                        >
+                          ${unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      `
+                      : ""
+                  }
+                </button>
+              `;
+            })
+            .join("");
         } catch (error) {
-          conversationList.innerHTML = `<p class="text-xs text-red-300">${escapeHtml(error.message)}</p>`;
+          conversationList.innerHTML = `
+            <p class="text-xs text-red-300">
+              ${escapeHtml(error.message)}
+            </p>
+          `;
         }
       }
 
@@ -246,12 +314,18 @@ const displayName =
         try {
           const data = await api("/api/messages", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "start", recipientId: userId }),
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              action: "start",
+              recipientId: userId,
+            }),
           });
 
           searchInput.value = "";
           userResults.innerHTML = "";
+
           await loadConversations();
           await openConversation(data.conversationId);
         } catch (error) {
@@ -263,22 +337,41 @@ const displayName =
         activeConversationId = conversationId;
         messageForm.classList.remove("hidden");
 
-        document.querySelectorAll(".conversation-item").forEach((button) => {
-          button.classList.toggle(
-            "border-[#d9ad55]/60",
-            button.dataset.conversationId === conversationId
-          );
-        });
+        document
+          .querySelectorAll(".conversation-item")
+          .forEach((button) => {
+            button.classList.toggle(
+              "border-[#d9ad55]/60",
+              button.dataset.conversationId === conversationId
+            );
+          });
 
         try {
-          const data = await api(`/api/messages?mode=messages&conversationId=${encodeURIComponent(conversationId)}`);
-          const selected = [...document.querySelectorAll(".conversation-item")]
-            .find((button) => button.dataset.conversationId === conversationId);
+          const data = await api(
+            `/api/messages?mode=messages&conversationId=${encodeURIComponent(
+              conversationId
+            )}`
+          );
 
-          const name = selected?.querySelector("span span")?.textContent || "Conversation";
+          const selected = [
+            ...document.querySelectorAll(".conversation-item"),
+          ].find(
+            (button) =>
+              button.dataset.conversationId === conversationId
+          );
+
+          const name =
+            selected?.querySelector("span span")?.textContent ||
+            "Conversation";
+
           chatHeader.innerHTML = `
-            <p class="text-[9px] font-bold uppercase tracking-[.3em] text-[#d9ad55]">Private Conversation</p>
-            <h2 class="display mt-2 text-2xl text-[#ffe8a6]">${escapeHtml(name)}</h2>
+            <p class="text-[9px] font-bold uppercase tracking-[.3em] text-[#d9ad55]">
+              Private Conversation
+            </p>
+
+            <h2 class="display mt-2 text-2xl text-[#ffe8a6]">
+              ${escapeHtml(name)}
+            </h2>
           `;
 
           if (!data.messages?.length) {
@@ -286,59 +379,117 @@ const displayName =
               <div class="grid min-h-[430px] place-items-center text-center">
                 <div>
                   <div class="text-5xl">👋</div>
-                  <h3 class="display mt-4 text-2xl text-[#ffe8a6]">Say hello.</h3>
-                  <p class="mt-2 text-sm text-white/40">Start the conversation below.</p>
+
+                  <h3 class="display mt-4 text-2xl text-[#ffe8a6]">
+                    Say hello.
+                  </h3>
+
+                  <p class="mt-2 text-sm text-white/40">
+                    Start the conversation below.
+                  </p>
                 </div>
               </div>
             `;
+
             return;
           }
 
-          messageList.innerHTML = data.messages.map((message) => {
-            const mine = message.sender_id === viewerId;
-            return `
-              <div class="flex ${mine ? "justify-end" : "justify-start"}">
-                <div class="max-w-[80%] rounded-2xl ${mine ? "rounded-br-md bg-[#6d19c9] text-white" : "rounded-bl-md border border-white/10 bg-black/30 text-white/80"} px-4 py-3">
-                  <p class="whitespace-pre-wrap text-sm leading-6">${escapeHtml(message.body)}</p>
-                  <p class="mt-1 text-[9px] ${mine ? "text-white/55" : "text-white/30"}">${new Date(message.created_at).toLocaleString()}</p>
+          messageList.innerHTML = data.messages
+            .map((message) => {
+              const mine = message.sender_id === viewerId;
+
+              return `
+                <div class="flex ${
+                  mine ? "justify-end" : "justify-start"
+                }">
+                  <div
+                    class="max-w-[80%] rounded-2xl ${
+                      mine
+                        ? "rounded-br-md bg-[#6d19c9] text-white"
+                        : "rounded-bl-md border border-white/10 bg-black/30 text-white/80"
+                    } px-4 py-3"
+                  >
+                    <p class="whitespace-pre-wrap text-sm leading-6">
+                      ${escapeHtml(message.body)}
+                    </p>
+
+                    <p
+                      class="mt-1 text-[9px] ${
+                        mine
+                          ? "text-white/55"
+                          : "text-white/30"
+                      }"
+                    >
+                      ${new Date(
+                        message.created_at
+                      ).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            `;
-          }).join("");
+              `;
+            })
+            .join("");
 
           messageList.scrollTop = messageList.scrollHeight;
+
+          // Refresh the conversation list so the unread badge
+          // disappears after the conversation is opened.
+          await loadConversations();
         } catch (error) {
-          messageList.innerHTML = `<p class="text-sm text-red-300">${escapeHtml(error.message)}</p>`;
+          messageList.innerHTML = `
+            <p class="text-sm text-red-300">
+              ${escapeHtml(error.message)}
+            </p>
+          `;
         }
       }
 
       searchInput.addEventListener("input", () => {
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => searchMembers(searchInput.value), 250);
+
+        searchTimer = setTimeout(
+          () => searchMembers(searchInput.value),
+          250
+        );
       });
 
       userResults.addEventListener("click", (event) => {
         const button = event.target.closest("[data-user-id]");
-        if (button) startConversation(button.dataset.userId);
+
+        if (button) {
+          startConversation(button.dataset.userId);
+        }
       });
 
       conversationList.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-conversation-id]");
-        if (button) openConversation(button.dataset.conversationId);
+        const button = event.target.closest(
+          "[data-conversation-id]"
+        );
+
+        if (button) {
+          openConversation(
+            button.dataset.conversationId
+          );
+        }
       });
 
       messageForm.addEventListener("submit", async (event) => {
         event.preventDefault();
+
         const message = messageInput.value.trim();
 
-        if (!activeConversationId || !message) return;
+        if (!activeConversationId || !message) {
+          return;
+        }
 
         messageStatus.textContent = "Sending...";
 
         try {
           await api("/api/messages", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+            },
             body: JSON.stringify({
               action: "send",
               conversationId: activeConversationId,
@@ -348,6 +499,7 @@ const displayName =
 
           messageInput.value = "";
           messageStatus.textContent = "";
+
           await openConversation(activeConversationId);
           await loadConversations();
         } catch (error) {

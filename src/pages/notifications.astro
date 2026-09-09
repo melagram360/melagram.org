@@ -560,6 +560,11 @@ function formatTime(
                       data-notification-id={
                         notification.id
                       }
+                      data-notification-read={
+                        notification.is_read
+                          ? "true"
+                          : "false"
+                      }
                     >
 
                       <div
@@ -805,6 +810,91 @@ function formatTime(
 
         }
       );
+
+
+      /* --------------------------------
+         MARK INDIVIDUAL NOTIFICATION READ
+      --------------------------------- */
+
+      const notificationItems =
+        document.querySelectorAll(
+          "[data-notification-id]"
+        );
+
+
+      notificationItems.forEach((item) => {
+
+        item.addEventListener(
+          "click",
+          async (event) => {
+
+            const notificationId =
+              item.getAttribute(
+                "data-notification-id"
+              );
+
+            const isRead =
+              item.getAttribute(
+                "data-notification-read"
+              ) === "true";
+
+            if (!notificationId || isRead) {
+              return;
+            }
+
+            event.preventDefault();
+
+            try {
+
+              const response =
+                await fetch(
+                  "/api/notifications/read",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                    },
+                    body: JSON.stringify({
+                      notificationId,
+                    }),
+                  }
+                );
+
+
+              if (!response.ok) {
+                throw new Error(
+                  "Unable to mark notification as read."
+                );
+              }
+
+
+              item.setAttribute(
+                "data-notification-read",
+                "true"
+              );
+
+              window.location.href =
+                item.getAttribute("href") ||
+                "/notifications";
+
+            } catch (error) {
+
+              console.error(
+                "Mark notification read error:",
+                error
+              );
+
+              alert(
+                "We couldn't mark this notification as read. Please try again."
+              );
+
+            }
+
+          }
+        );
+
+      });
 
 
       /* --------------------------------
