@@ -15,23 +15,47 @@ const {
   linkImageUrl,
 } = Astro.props;
 
+const getHostname = (url: string): string => {
+  try {
+    return new URL(url).hostname
+      .toLowerCase()
+      .replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
+
+const hostname = getHostname(linkUrl);
+
 const platform =
-  linkType === "youtube"
+  linkType === "youtube" ||
+  hostname === "youtube.com" ||
+  hostname === "m.youtube.com" ||
+  hostname === "youtu.be"
     ? "YouTube"
-    : linkType === "tiktok"
+    : linkType === "tiktok" ||
+        hostname === "tiktok.com" ||
+        hostname === "m.tiktok.com"
       ? "TikTok"
-      : linkType === "instagram"
+      : linkType === "instagram" ||
+          hostname === "instagram.com"
         ? "Instagram"
-        : "Website";
+        : hostname === "facebook.com" ||
+            hostname === "m.facebook.com" ||
+            hostname === "fb.watch"
+          ? "Facebook"
+          : "Website";
 
 const platformIcon =
-  linkType === "youtube"
+  platform === "YouTube"
     ? "▶"
-    : linkType === "tiktok"
+    : platform === "TikTok"
       ? "♪"
-      : linkType === "instagram"
+      : platform === "Instagram"
         ? "◎"
-        : "🔗";
+        : platform === "Facebook"
+          ? "f"
+          : "🔗";
 
 const title =
   linkTitle ||
@@ -44,13 +68,13 @@ const description =
 const getYouTubeVideoId = (url: string): string | null => {
   try {
     const parsed = new URL(url);
-    const hostname = parsed.hostname
+    const host = parsed.hostname
       .toLowerCase()
       .replace(/^www\./, "");
 
     if (
-      hostname === "youtube.com" ||
-      hostname === "m.youtube.com"
+      host === "youtube.com" ||
+      host === "m.youtube.com"
     ) {
       if (parsed.pathname === "/watch") {
         return parsed.searchParams.get("v");
@@ -81,7 +105,7 @@ const getYouTubeVideoId = (url: string): string | null => {
       }
     }
 
-    if (hostname === "youtu.be") {
+    if (host === "youtu.be") {
       return (
         parsed.pathname
           .split("/")[1]
@@ -95,27 +119,149 @@ const getYouTubeVideoId = (url: string): string | null => {
   }
 };
 
+const getTikTokVideoId = (url: string): string | null => {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname
+      .toLowerCase()
+      .replace(/^www\./, "");
+
+    if (
+      host !== "tiktok.com" &&
+      host !== "m.tiktok.com"
+    ) {
+      return null;
+    }
+
+    const match =
+      parsed.pathname.match(
+        /\/video\/(\d+)/
+      );
+
+    return match?.[1] || null;
+  } catch {
+    return null;
+  }
+};
+
+const getInstagramEmbedUrl = (
+  url: string
+): string | null => {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname
+      .toLowerCase()
+      .replace(/^www\./, "");
+
+    if (host !== "instagram.com") {
+      return null;
+    }
+
+    const match =
+      parsed.pathname.match(
+        /^\/(?:reel|reels|p|tv)\/([^/?#]+)/
+      );
+
+    if (!match?.[1]) {
+      return null;
+    }
+
+    const type =
+      parsed.pathname
+        .split("/")
+        .filter(Boolean)[0];
+
+    if (!type) {
+      return null;
+    }
+
+    return `https://www.instagram.com/${type}/${match[1]}/embed`;
+  } catch {
+    return null;
+  }
+};
+
+const isFacebookVideo =
+  platform === "Facebook" &&
+  (
+    hostname === "facebook.com" ||
+    hostname === "m.facebook.com" ||
+    hostname === "fb.watch"
+  );
+
 const youtubeVideoId =
-  linkType === "youtube"
-    ? getYouTubeVideoId(linkUrl)
-    : null;
+  getYouTubeVideoId(linkUrl);
+
+const tiktokVideoId =
+  getTikTokVideoId(linkUrl);
+
+const instagramEmbedUrl =
+  getInstagramEmbedUrl(linkUrl);
 
 const isYouTubeVideo =
   Boolean(youtubeVideoId);
+
+const isTikTokVideo =
+  Boolean(tiktokVideoId);
+
+const isInstagramVideo =
+  Boolean(instagramEmbedUrl);
+
+const facebookEmbedUrl =
+  isFacebookVideo
+    ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(linkUrl)}&show_text=false&width=800`
+    : null;
+
+const isEmbeddedVideo =
+  isYouTubeVideo ||
+  isTikTokVideo ||
+  isInstagramVideo ||
+  Boolean(facebookEmbedUrl);
 ---
 
 {
-  isYouTubeVideo && youtubeVideoId ? (
+  isEmbeddedVideo ? (
     <div class="group mt-5 overflow-hidden rounded-2xl border border-[#d9ad55]/30 bg-black/40">
       <div class="relative aspect-video w-full overflow-hidden bg-black">
-        <iframe
-          src={`https://www.youtube-nocookie.com/embed/${youtubeVideoId}?rel=0`}
-          title={title}
-          class="absolute inset-0 h-full w-full"
-          loading="lazy"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowfullscreen
-        ></iframe>
+
+        {isYouTubeVideo && youtubeVideoId ? (
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${youtubeVideoId}?rel=0`}
+            title={title}
+            class="absolute inset-0 h-full w-full"
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+          ></iframe>
+        ) : isTikTokVideo && tiktokVideoId ? (
+          <iframe
+            src={`https://www.tiktok.com/player/v1/${tiktokVideoId}?description=1&music_info=1&rel=0`}
+            title={title}
+            class="absolute inset-0 h-full w-full"
+            loading="lazy"
+            allow="fullscreen"
+            allowfullscreen
+          ></iframe>
+        ) : isInstagramVideo && instagramEmbedUrl ? (
+          <iframe
+            src={instagramEmbedUrl}
+            title={title}
+            class="absolute inset-0 h-full w-full"
+            loading="lazy"
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+            allowfullscreen
+          ></iframe>
+        ) : facebookEmbedUrl ? (
+          <iframe
+            src={facebookEmbedUrl}
+            title={title}
+            class="absolute inset-0 h-full w-full"
+            loading="lazy"
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+            allowfullscreen
+          ></iframe>
+        ) : null}
+
       </div>
 
       <div class="border-t border-[#d9ad55]/20 p-5">
