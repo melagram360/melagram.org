@@ -2084,6 +2084,13 @@ export const server = {
           1000,
           "Your comment must be 1,000 characters or fewer."
         ),
+
+      parentCommentId: z
+        .string()
+        .uuid()
+        .nullable()
+        .optional()
+        .default(null),
     }),
 
     handler: async (input, context) => {
@@ -2109,6 +2116,72 @@ export const server = {
         const content =
           input.content.trim();
 
+        const parentCommentId =
+          input.parentCommentId ?? null;
+
+        /*
+         * Replies are limited to one level:
+         * a reply can target a top-level comment,
+         * but a reply cannot target another reply.
+         */
+        if (parentCommentId) {
+          const {
+            data: parentComment,
+            error: parentLookupError,
+          } = await supabase
+            .from("post_comments")
+            .select(
+              "id, post_id, parent_comment_id"
+            )
+            .eq(
+              "id",
+              parentCommentId
+            )
+            .maybeSingle();
+
+          if (parentLookupError) {
+            console.error(
+              "Parent comment lookup error:",
+              parentLookupError
+            );
+
+            return {
+              success: false,
+              message:
+                "We couldn't verify the comment you're replying to. Please try again.",
+            };
+          }
+
+          if (!parentComment) {
+            return {
+              success: false,
+              message:
+                "That comment could not be found.",
+            };
+          }
+
+          if (
+            parentComment.post_id !==
+            input.postId
+          ) {
+            return {
+              success: false,
+              message:
+                "That comment does not belong to this post.",
+            };
+          }
+
+          if (
+            parentComment.parent_comment_id
+          ) {
+            return {
+              success: false,
+              message:
+                "Replies can only be made to a top-level comment.",
+            };
+          }
+        }
+
         const { error } =
           await supabase
             .from("post_comments")
@@ -2118,6 +2191,8 @@ export const server = {
               user_id:
                 user.id,
               content,
+              parent_comment_id:
+                parentCommentId,
             });
 
         if (error) {
@@ -2136,7 +2211,9 @@ export const server = {
         return {
           success: true,
           message:
-            "Your comment has been posted.",
+            parentCommentId
+              ? "Your reply has been posted."
+              : "Your comment has been posted.",
         };
       } catch (error) {
         console.error(

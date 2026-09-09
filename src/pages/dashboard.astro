@@ -192,7 +192,7 @@ if (
   } = await supabase
     .from("post_comments")
     .select(
-      "id, post_id, user_id, content, created_at"
+      "id, post_id, user_id, content, created_at, parent_comment_id"
     )
     .in(
       "post_id",
@@ -280,26 +280,59 @@ if (
     !commentsError &&
     comments
   ) {
-    for (
-      const comment of comments
-    ) {
-      const existing =
-        commentsByPost.get(
-          comment.post_id
-        ) ?? [];
-
-      existing.push({
-        ...comment,
-        profile:
-          allProfileMap.get(
-            comment.user_id
-          ) ?? null,
-      });
-
-      commentsByPost.set(
-        comment.post_id,
-        existing
+    const commentsWithProfiles =
+      comments.map(
+        (comment) => ({
+          ...comment,
+          profile:
+            allProfileMap.get(
+              comment.user_id
+            ) ?? null,
+          replies: [],
+        })
       );
+
+    const commentMap =
+      new Map(
+        commentsWithProfiles.map(
+          (comment) => [
+            comment.id,
+            comment,
+          ]
+        )
+      );
+
+    for (
+      const comment of commentsWithProfiles
+    ) {
+      if (
+        comment.parent_comment_id
+      ) {
+        const parent =
+          commentMap.get(
+            comment.parent_comment_id
+          );
+
+        if (parent) {
+          parent.replies.push(
+            comment
+          );
+        }
+      } else {
+        const existing =
+          commentsByPost.get(
+            comment.post_id
+          ) ?? [];
+
+        existing.push(
+          comment
+        );
+
+        commentsByPost.set(
+          comment.post_id,
+          existing
+        );
+      }
     }
   }
 
@@ -1140,74 +1173,232 @@ if (
                                   return (
 
                                     <div
-                                      class="flex gap-3 rounded-xl border border-white/10 bg-black/20 p-3"
+                                      class="comment-thread"
+                                      data-comment-id={comment.id}
                                     >
 
-                                      {commentAvatar ? (
-
-                                        <img
-                                          src={commentAvatar}
-                                          alt={commentName}
-                                          class="h-9 w-9 shrink-0 rounded-full border border-[#d9ad55]/30 object-cover"
-                                        />
-
-                                      ) : (
-
-                                        <div
-                                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/30 bg-[#6d19c9]/15 text-sm font-semibold text-[#ffe8a6]"
-                                        >
-                                          {commentName
-                                            .charAt(0)
-                                            .toUpperCase()}
-                                        </div>
-
-                                      )}
-
+                                      <!-- TOP-LEVEL COMMENT -->
 
                                       <div
-                                        class="min-w-0 flex-1"
+                                        class="flex gap-3 rounded-xl border border-white/10 bg-black/20 p-3"
                                       >
 
+                                        {commentAvatar ? (
+
+                                          <img
+                                            src={commentAvatar}
+                                            alt={commentName}
+                                            class="h-9 w-9 shrink-0 rounded-full border border-[#d9ad55]/30 object-cover"
+                                          />
+
+                                        ) : (
+
+                                          <div
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/30 bg-[#6d19c9]/15 text-sm font-semibold text-[#ffe8a6]"
+                                          >
+                                            {commentName
+                                              .charAt(0)
+                                              .toUpperCase()}
+                                          </div>
+
+                                        )}
+
                                         <div
-                                          class="flex flex-wrap items-baseline gap-x-2"
+                                          class="min-w-0 flex-1"
                                         >
 
-                                          <span
-                                            class="text-sm font-semibold text-[#ffe8a6]"
+                                          <div
+                                            class="flex flex-wrap items-baseline gap-x-2"
                                           >
-                                            {commentName}
-                                          </span>
-
-
-                                          {commentDate && (
 
                                             <span
-                                              class="text-[11px] text-white/30"
+                                              class="text-sm font-semibold text-[#ffe8a6]"
                                             >
-                                              {commentDate}
+                                              {commentName}
                                             </span>
 
+                                            {commentDate && (
+
+                                              <span
+                                                class="text-[11px] text-white/30"
+                                              >
+                                                {commentDate}
+                                              </span>
+
+                                            )}
+
+                                          </div>
+
+                                          <p
+                                            class="mt-1 whitespace-pre-wrap text-sm leading-6 text-white/70"
+                                          >
+                                            {comment.content}
+                                          </p>
+
+                                          <button
+                                            type="button"
+                                            class="reply-toggle mt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#d9ad55] transition hover:text-[#ffe8a6]"
+                                            data-comment-id={comment.id}
+                                          >
+                                            Reply
+                                          </button>
+
+                                        </div>
+
+                                      </div>
+
+                                      <!-- REPLIES -->
+
+                                      {comment.replies &&
+                                        comment.replies.length > 0 && (
+
+                                        <div
+                                          class="ml-8 mt-2 space-y-2 border-l border-[#d9ad55]/20 pl-4"
+                                        >
+
+                                          {comment.replies.map(
+                                            (reply) => {
+
+                                              const replyProfile =
+                                                reply.profile;
+
+                                              const replyName =
+                                                replyProfile?.full_name ||
+                                                replyProfile?.username ||
+                                                "Melagram Member";
+
+                                              const replyAvatar =
+                                                replyProfile?.avatar_url;
+
+                                              const replyDate =
+                                                reply.created_at
+                                                  ? new Date(
+                                                      reply.created_at
+                                                    ).toLocaleString(
+                                                      "en-US",
+                                                      {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                        hour: "numeric",
+                                                        minute: "2-digit",
+                                                      }
+                                                    )
+                                                  : "";
+
+                                              return (
+
+                                                <div
+                                                  class="flex gap-3 rounded-xl border border-white/10 bg-black/10 p-3"
+                                                >
+
+                                                  {replyAvatar ? (
+
+                                                    <img
+                                                      src={replyAvatar}
+                                                      alt={replyName}
+                                                      class="h-8 w-8 shrink-0 rounded-full border border-[#d9ad55]/25 object-cover"
+                                                    />
+
+                                                  ) : (
+
+                                                    <div
+                                                      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#d9ad55]/25 bg-[#6d19c9]/10 text-xs font-semibold text-[#ffe8a6]"
+                                                    >
+                                                      {replyName
+                                                        .charAt(0)
+                                                        .toUpperCase()}
+                                                    </div>
+
+                                                  )}
+
+                                                  <div
+                                                    class="min-w-0 flex-1"
+                                                  >
+
+                                                    <div
+                                                      class="flex flex-wrap items-baseline gap-x-2"
+                                                    >
+
+                                                      <span
+                                                        class="text-sm font-semibold text-[#ffe8a6]"
+                                                      >
+                                                        {replyName}
+                                                      </span>
+
+                                                      {replyDate && (
+
+                                                        <span
+                                                          class="text-[11px] text-white/30"
+                                                        >
+                                                          {replyDate}
+                                                        </span>
+
+                                                      )}
+
+                                                    </div>
+
+                                                    <p
+                                                      class="mt-1 whitespace-pre-wrap text-sm leading-6 text-white/70"
+                                                    >
+                                                      {reply.content}
+                                                    </p>
+
+                                                  </div>
+
+                                                </div>
+
+                                              );
+
+                                            }
                                           )}
 
                                         </div>
 
+                                      )}
 
-                                        <p
-                                          class="mt-1 whitespace-pre-wrap text-sm leading-6 text-white/70"
+                                      <!-- REPLY FORM -->
+
+                                      <form
+                                        class="reply-form ml-8 mt-2 hidden flex gap-2 border-l border-[#d9ad55]/20 pl-4"
+                                        data-post-id={post.id}
+                                        data-parent-comment-id={comment.id}
+                                      >
+
+                                        <input
+                                          type="text"
+                                          name="content"
+                                          maxlength="1000"
+                                          required
+                                          placeholder={`Reply to ${commentName}...`}
+                                          class="min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#d9ad55]/50"
+                                        />
+
+                                        <button
+                                          type="submit"
+                                          class="reply-submit rounded-full bg-[#6d19c9] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#7d27dc]"
                                         >
-                                          {comment.content}
-                                        </p>
+                                          Reply
+                                        </button>
 
-                                      </div>
+                                        <button
+                                          type="button"
+                                          class="reply-cancel rounded-full border border-white/10 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/50 transition hover:border-[#d9ad55]/40 hover:text-[#ffe8a6]"
+                                        >
+                                          Cancel
+                                        </button>
+
+                                      </form>
+
+                                      <p
+                                        class="reply-message ml-8 mt-1 hidden pl-4 text-xs text-red-300"
+                                      ></p>
 
                                     </div>
 
                                   );
 
                                 }
-                              )
-
-                            ) : (
+                              )                            ) : (
 
                               <p
                                 class="py-2 text-sm text-white/35"
@@ -1808,6 +1999,7 @@ if (
                 await actions.createComment({
                   postId,
                   content,
+                  parentCommentId: null,
                 });
 
 
@@ -1828,6 +2020,250 @@ if (
                   message.textContent =
                     data?.message ||
                     "We couldn't post your comment. Please try again.";
+
+                  message.classList.remove(
+                    "hidden"
+                  );
+
+                }
+
+                return;
+              }
+
+
+              window.location.reload();
+
+            }
+          );
+
+        }
+      );
+
+
+      /* --------------------------------
+         REPLY TO COMMENTS
+      --------------------------------- */
+
+      const replyButtons =
+        document.querySelectorAll(
+          ".reply-toggle"
+        );
+
+
+      replyButtons.forEach(
+        (button) => {
+
+          button.addEventListener(
+            "click",
+            () => {
+
+              const commentId =
+                button.getAttribute(
+                  "data-comment-id"
+                );
+
+              if (!commentId) {
+                return;
+              }
+
+
+              const thread =
+                button.closest(
+                  ".comment-thread"
+                );
+
+              if (!thread) {
+                return;
+              }
+
+
+              const replyForm =
+                thread.querySelector(
+                  ".reply-form"
+                ) as HTMLFormElement | null;
+
+
+              if (!replyForm) {
+                return;
+              }
+
+
+              replyForm.classList.toggle(
+                "hidden"
+              );
+
+
+              if (
+                !replyForm.classList.contains(
+                  "hidden"
+                )
+              ) {
+
+                const input =
+                  replyForm.querySelector(
+                    'input[name="content"]'
+                  ) as HTMLInputElement | null;
+
+                input?.focus();
+
+              }
+
+            }
+          );
+
+        }
+      );
+
+
+      const replyCancelButtons =
+        document.querySelectorAll(
+          ".reply-cancel"
+        );
+
+
+      replyCancelButtons.forEach(
+        (button) => {
+
+          button.addEventListener(
+            "click",
+            () => {
+
+              const replyForm =
+                button.closest(
+                  ".reply-form"
+                ) as HTMLFormElement | null;
+
+              if (!replyForm) {
+                return;
+              }
+
+              replyForm.classList.add(
+                "hidden"
+              );
+
+              const input =
+                replyForm.querySelector(
+                  'input[name="content"]'
+                ) as HTMLInputElement | null;
+
+              if (input) {
+                input.value = "";
+              }
+
+            }
+          );
+
+        }
+      );
+
+
+      const replyForms =
+        document.querySelectorAll(
+          ".reply-form"
+        );
+
+
+      replyForms.forEach(
+        (form) => {
+
+          form.addEventListener(
+            "submit",
+            async (event) => {
+
+              event.preventDefault();
+
+
+              const replyForm =
+                form as HTMLFormElement;
+
+
+              const postId =
+                replyForm.dataset.postId;
+
+
+              const parentCommentId =
+                replyForm.dataset.parentCommentId;
+
+
+              const input =
+                replyForm.querySelector(
+                  'input[name="content"]'
+                ) as HTMLInputElement | null;
+
+
+              const submitButton =
+                replyForm.querySelector(
+                  ".reply-submit"
+                ) as HTMLButtonElement | null;
+
+
+              const message =
+                replyForm.parentElement?.querySelector(
+                  ".reply-message"
+                ) as HTMLElement | null;
+
+
+              if (
+                !postId ||
+                !parentCommentId ||
+                !input ||
+                !submitButton
+              ) {
+                return;
+              }
+
+
+              const content =
+                input.value.trim();
+
+
+              if (!content) {
+                return;
+              }
+
+
+              submitButton.disabled =
+                true;
+
+              submitButton.textContent =
+                "Posting...";
+
+
+              if (message) {
+                message.classList.add(
+                  "hidden"
+                );
+              }
+
+
+              const {
+                data,
+                error,
+              } =
+                await actions.createComment({
+                  postId,
+                  content,
+                  parentCommentId,
+                });
+
+
+              if (
+                error ||
+                !data?.success
+              ) {
+
+                submitButton.disabled =
+                  false;
+
+                submitButton.textContent =
+                  "Reply";
+
+
+                if (message) {
+
+                  message.textContent =
+                    data?.message ||
+                    "We couldn't post your reply. Please try again.";
 
                   message.classList.remove(
                     "hidden"

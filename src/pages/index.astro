@@ -16,6 +16,12 @@ const features = [
     href: "/communities",
   },
   {
+    icon: "☕",
+    title: "The Gossip Column",
+    text: "Celebrity tea, music, reality TV, movies, viral moments, and the internet drama everyone is talking about.",
+    href: "/gossip",
+  },
+  {
     icon: "♛",
     title: "Creators",
     text: "Give creators a place to build their audience and own their community.",
@@ -100,6 +106,10 @@ const isLoggedIn = !!user;
 
             <a class="nav-link" href="/communities">
               Communities
+            </a>
+
+            <a class="nav-link" href="/gossip">
+              Gossip
             </a>
 
             <a class="nav-link" href="/creators">
@@ -272,7 +282,7 @@ const isLoggedIn = !!user;
 
 
           <div
-            class="mx-auto grid max-w-7xl gap-5 md:grid-cols-2 xl:grid-cols-4"
+            class="mx-auto grid max-w-7xl gap-5 md:grid-cols-2 xl:grid-cols-5"
           >
 
             {
@@ -311,6 +321,40 @@ const isLoggedIn = !!user;
 
           </div>
 
+        </section>
+
+
+        <!-- GOSSIP COLUMN -->
+        <section
+          id="gossip"
+          class="px-5 py-16 lg:px-10"
+        >
+          <div class="luxury-panel gold-border relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] px-6 py-12 sm:px-12">
+            <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_50%,rgba(109,25,201,.28),transparent_45%)]"></div>
+
+            <div class="relative grid items-center gap-8 md:grid-cols-[1fr_auto]">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">
+                  Melagram Exclusive
+                </p>
+
+                <h2 class="display mt-4 text-4xl leading-tight text-[#fff4d4] sm:text-5xl">
+                  Bring Me the Tea. ☕
+                </h2>
+
+                <p class="mt-4 max-w-2xl text-sm leading-7 text-white/55 sm:text-base">
+                  Celebrity news, music, reality TV, movies, viral moments, and the internet drama everybody is talking about.
+                </p>
+              </div>
+
+              <a
+                href="/gossip"
+                class="cta inline-flex justify-center rounded-xl px-7 py-3.5 text-sm font-bold uppercase tracking-wider text-white"
+              >
+                Enter the Gossip Column
+              </a>
+            </div>
+          </div>
         </section>
 
 
