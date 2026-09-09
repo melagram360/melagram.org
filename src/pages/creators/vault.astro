@@ -142,6 +142,33 @@ function getCategoryDescription(category: string | null) {
           <div class="mb-12 flex items-center gap-4"><div class="gold-line flex-1"></div><h2 class="display shrink-0 text-2xl tracking-[.15em] text-[#ffe8a6] sm:text-4xl">VAULT MEMBERS</h2><div class="gold-line flex-1"></div></div>
           <p class="mx-auto -mt-6 mb-10 max-w-xl text-center text-sm text-white/40">Real Melagram creators who have chosen to be discoverable.</p>
 
+          {!creatorProfilesError && creators.length > 0 && (
+            <div class="mx-auto mb-12 max-w-5xl">
+              <div class="rounded-2xl border border-[#d9ad55]/30 bg-[#100618]/70 p-4 shadow-[0_15px_45px_rgba(0,0,0,.25)] sm:p-5">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-center">
+                  <div class="relative flex-1">
+                    <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#d9ad55]">⌕</span>
+                    <input id="vault-search" type="search" placeholder="Search creators..." aria-label="Search creators"
+                      class="w-full rounded-xl border border-[#d9ad55]/30 bg-[#050208] py-3 pl-11 pr-4 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#d9ad55]/70" />
+                  </div>
+                  <div class="flex flex-wrap gap-2" id="vault-filters">
+                    <button type="button" data-category="All" class="vault-filter active rounded-full border border-[#d9ad55] bg-[#d9ad55]/15 px-4 py-2 text-[9px] font-bold uppercase tracking-[.14em] text-[#ffe8a6]">All</button>
+                    {creatorCategories.map((category) => (
+                      <button type="button" data-category={category.title}
+                        class="vault-filter rounded-full border border-white/10 bg-[#050208] px-4 py-2 text-[9px] font-bold uppercase tracking-[.14em] text-white/50 transition hover:border-[#d9ad55]/50 hover:text-[#ffe8a6]">
+                        {category.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between border-t border-white/5 pt-3 text-[9px] font-bold uppercase tracking-[.15em] text-white/30">
+                  <span id="vault-result-count">{creators.length} {creators.length === 1 ? "Creator" : "Creators"}</span>
+                  <button id="vault-clear" type="button" class="hidden text-[#d9ad55] transition hover:text-[#ffe8a6]">Clear Search</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {creatorProfilesError ? (
             <div class="luxury-panel gold-border mx-auto max-w-2xl rounded-2xl p-10 text-center"><div class="gold-line mx-auto mb-7 w-24"></div><h3 class="font-serif text-2xl text-[#ffe8a6]">The Vault is temporarily unavailable.</h3><p class="mt-4 text-sm leading-7 text-white/50">We couldn't retrieve the current creator collection. Please refresh the page and try again.</p></div>
           ) : creators.length === 0 ? (
@@ -159,7 +186,11 @@ function getCategoryDescription(category: string | null) {
                 const category = creator.creator_category || "Creator";
                 const description = creator.bio?.trim() || getCategoryDescription(creator.creator_category);
                 return (
-                  <article class="group relative overflow-hidden border border-[#d9ad55]/50 bg-gradient-to-b from-[#180b24] to-[#08040d] p-5 shadow-[0_15px_45px_rgba(0,0,0,.35)] transition hover:-translate-y-2 hover:border-[#d9ad55]">
+                  <article
+                    class="vault-creator-card group relative overflow-hidden border border-[#d9ad55]/50 bg-gradient-to-b from-[#180b24] to-[#08040d] p-5 shadow-[0_15px_45px_rgba(0,0,0,.35)] transition hover:-translate-y-2 hover:border-[#d9ad55]"
+                    data-category={category}
+                    data-search={`${displayName} ${creator.username ?? ""} ${description} ${category}`.toLowerCase()}
+                  >
                     <div class="absolute left-2 top-2 h-7 w-7 border-l border-t border-[#d9ad55]"></div><div class="absolute right-2 top-2 h-7 w-7 border-r border-t border-[#d9ad55]"></div><div class="absolute bottom-2 left-2 h-7 w-7 border-b border-l border-[#d9ad55]"></div><div class="absolute bottom-2 right-2 h-7 w-7 border-b border-r border-[#d9ad55]"></div>
                     <div class="relative">
                       <div class="mx-auto grid h-36 w-36 place-items-center overflow-hidden rounded-full border-4 border-[#d9ad55]/80 bg-gradient-to-br from-[#32104d] to-[#0b040f] text-3xl font-bold text-[#ffe8a6] shadow-[0_0_35px_rgba(109,25,201,.25)]">
@@ -177,6 +208,12 @@ function getCategoryDescription(category: string | null) {
                   </article>
                 );
               })}
+            </div>
+
+            <div id="vault-no-results" class="luxury-panel gold-border mx-auto mt-8 hidden max-w-2xl rounded-2xl p-10 text-center">
+              <div class="mx-auto grid h-16 w-16 place-items-center rounded-full border border-[#d9ad55]/60 bg-[#160722] text-2xl text-[#ffe8a6]">⌕</div>
+              <h3 class="mt-5 font-serif text-2xl text-[#ffe8a6]">No creators found</h3>
+              <p class="mt-3 text-sm leading-7 text-white/45">Try another name, username, bio keyword, or creator category.</p>
             </div>
           )}
         </div>
@@ -213,5 +250,70 @@ function getCategoryDescription(category: string | null) {
     </footer>
     <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
   </div>
+
+  <script>
+    const initVaultFilters = () => {
+      const searchInput = document.getElementById("vault-search");
+      const filterButtons = Array.from(document.querySelectorAll(".vault-filter"));
+      const cards = Array.from(document.querySelectorAll(".vault-creator-card"));
+      const resultCount = document.getElementById("vault-result-count");
+      const noResults = document.getElementById("vault-no-results");
+      const clearButton = document.getElementById("vault-clear");
+
+      if (!searchInput || !cards.length) return;
+      let activeCategory = "All";
+
+      const applyFilters = () => {
+        const query = searchInput.value.trim().toLowerCase();
+        let visible = 0;
+
+        cards.forEach((card) => {
+          const category = card.dataset.category || "";
+          const searchable = card.dataset.search || "";
+          const show = (activeCategory === "All" || category === activeCategory) &&
+            (!query || searchable.includes(query));
+          card.classList.toggle("hidden", !show);
+          if (show) visible += 1;
+        });
+
+        if (resultCount) resultCount.textContent = `${visible} ${visible === 1 ? "Creator" : "Creators"}`;
+        if (noResults) noResults.classList.toggle("hidden", visible !== 0);
+        if (clearButton) clearButton.classList.toggle("hidden", !query && activeCategory === "All");
+      };
+
+      filterButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          activeCategory = button.dataset.category || "All";
+          filterButtons.forEach((item) => {
+            const active = item === button;
+            item.classList.toggle("active", active);
+            item.classList.toggle("border-[#d9ad55]", active);
+            item.classList.toggle("bg-[#d9ad55]/15", active);
+            item.classList.toggle("text-[#ffe8a6]", active);
+            item.classList.toggle("border-white/10", !active);
+            item.classList.toggle("bg-[#050208]", !active);
+            item.classList.toggle("text-white/50", !active);
+          });
+          applyFilters();
+        });
+      });
+
+      searchInput.addEventListener("input", applyFilters);
+
+      clearButton?.addEventListener("click", () => {
+        searchInput.value = "";
+        activeCategory = "All";
+        filterButtons.find((button) => button.dataset.category === "All")?.click();
+      });
+
+      applyFilters();
+    };
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initVaultFilters);
+    } else {
+      initVaultFilters();
+    }
+  </script>
 </body>
 </html>
