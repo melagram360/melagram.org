@@ -2,6 +2,7 @@
 import "../../styles/global.css";
 import { actions } from "astro:actions";
 import { createClient } from "../../lib/supabase";
+import LinkPreview from "../../components/LinkPreview.astro";
 
 /*
  * This is a dynamic SSR community page.
@@ -10,72 +11,9 @@ import { createClient } from "../../lib/supabase";
  */
 export const prerender = false;
 
-const communityList = {
-  "creative-minds": {
-    icon: "🎨",
-    name: "Creative Minds",
-    category: "Creativity",
-    members: "12.4K members",
-    description:
-      "A space for artists, designers, writers, musicians, and creative people to share ideas and inspire each other.",
-  },
+const slug = Astro.params.slug?.trim() || null;
 
-  "music-lounge": {
-    icon: "🎵",
-    name: "Music Lounge",
-    category: "Music",
-    members: "9.8K members",
-    description:
-      "Talk music, discover new sounds, share your work, and connect with people who live and breathe music.",
-  },
-
-  "movie-tv-talk": {
-    icon: "🎬",
-    name: "Movie & TV Talk",
-    category: "Entertainment",
-    members: "8.6K members",
-    description:
-      "Your spot for movie nights, television debates, reviews, recommendations, and everything on screen.",
-  },
-
-  "food-flavor": {
-    icon: "🍳",
-    name: "Food & Flavor",
-    category: "Lifestyle",
-    members: "7.2K members",
-    description:
-      "Recipes, cooking experiments, restaurant finds, food stories, and people who simply love to eat.",
-  },
-
-  "travel-circle": {
-    icon: "✈️",
-    name: "Travel Circle",
-    category: "Travel",
-    members: "6.9K members",
-    description:
-      "Share destinations, travel stories, tips, dream trips, and unforgettable experiences from around the world.",
-  },
-
-  "real-talk": {
-    icon: "💬",
-    name: "Real Talk",
-    category: "Conversation",
-    members: "15.1K members",
-    description:
-      "Open conversations about life, culture, relationships, experiences, and the things people really want to discuss.",
-  },
-} as const;
-
-type CommunitySlug = keyof typeof communityList;
-
-const slug = Astro.params.slug as CommunitySlug | undefined;
-
-const community =
-  slug && communityList[slug]
-    ? communityList[slug]
-    : null;
-
-if (!community || !slug) {
+if (!slug) {
   return Astro.redirect("/communities");
 }
 
@@ -104,7 +42,7 @@ const displayName =
   "Member";
 
 /* --------------------------------
-   COMMUNITY MEMBERSHIP
+   COMMUNITY
 --------------------------------- */
 
 const {
@@ -112,18 +50,38 @@ const {
   error: communityRecordError,
 } = await supabase
   .from("communities")
-  .select("id")
+  .select("id, slug, name, category, description, icon")
   .eq("slug", slug)
   .maybeSingle();
 
-let communityId: string | null = null;
-let isCommunityMember = false;
-
-if (!communityRecordError && communityRecord) {
-  communityId = communityRecord.id;
+if (communityRecordError || !communityRecord) {
+  return Astro.redirect("/communities");
 }
 
-if (user && communityId) {
+const { count: memberCount } = await supabase
+  .from("community_members")
+  .select("id", {
+    count: "exact",
+    head: true,
+  })
+  .eq("community_id", communityRecord.id);
+
+const community = {
+  ...communityRecord,
+  members:
+    (memberCount ?? 0) === 1
+      ? "1 member"
+      : `${(memberCount ?? 0).toLocaleString()} members`,
+};
+
+const communityId = community.id;
+let isCommunityMember = false;
+
+/* --------------------------------
+   COMMUNITY MEMBERSHIP
+--------------------------------- */
+
+if (user) {
   const {
     data: membership,
   } = await supabase
@@ -146,7 +104,7 @@ const {
 } = await supabase
   .from("posts")
   .select(
-    "id, user_id, content, image_url, created_at, community_slug"
+    "id, user_id, content, image_url, created_at, community_slug, link_url, link_type, link_title, link_description, link_image_url"
   )
   .eq("community_slug", slug)
   .order("created_at", {
@@ -1033,6 +991,17 @@ if (!postsError && posts && posts.length > 0) {
                               </div>
 
                             )}
+
+                            {post.link_url &&
+                              post.link_type && (
+                                <LinkPreview
+                                  linkUrl={post.link_url}
+                                  linkType={post.link_type}
+                                  linkTitle={post.link_title}
+                                  linkDescription={post.link_description}
+                                  linkImageUrl={post.link_image_url}
+                                />
+                              )}
 
                           </div>
 
@@ -2153,7 +2122,7 @@ if (!postsError && posts && posts.length > 0) {
               }
 
               const shareUrl =
-                `${window.location.origin}/communities/{slug}#post-${postId}`;
+                `${window.location.origin}/communities/${slug}#post-${postId}`;
 
               const label =
                 button.querySelector(
@@ -2173,7 +2142,8 @@ if (!postsError && posts && posts.length > 0) {
 
                   await navigator.share({
                     title:
-                      "{community.name} — Melagram",
+                      document.title,
+
                     text:
                       "Check out this post on Melagram.",
                     url:

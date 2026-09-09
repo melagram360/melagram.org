@@ -1515,6 +1515,16 @@ export const server = {
       image: z
         .instanceof(File)
         .optional(),
+
+      communitySlug: z
+        .string()
+        .trim()
+        .max(
+          100,
+          "Invalid community."
+        )
+        .optional()
+        .default(""),
     }),
 
     handler: async (input, context) => {
@@ -1539,6 +1549,79 @@ export const server = {
 
         const content =
           input.content.trim();
+
+        const communitySlug =
+          (input.communitySlug ?? "").trim() ||
+          null;
+
+        if (communitySlug) {
+          const {
+            data: community,
+            error: communityError,
+          } = await supabase
+            .from("communities")
+            .select("id, slug, name")
+            .eq("slug", communitySlug)
+            .maybeSingle();
+
+          if (communityError) {
+            console.error(
+              "Community lookup error:",
+              communityError
+            );
+
+            return {
+              success: false,
+              message:
+                "We couldn't verify that community. Please try again.",
+            };
+          }
+
+          if (!community) {
+            return {
+              success: false,
+              message:
+                "That community could not be found.",
+            };
+          }
+
+          const {
+            data: membership,
+            error: membershipError,
+          } = await supabase
+            .from("community_members")
+            .select("community_id")
+            .eq(
+              "community_id",
+              community.id
+            )
+            .eq(
+              "user_id",
+              user.id
+            )
+            .maybeSingle();
+
+          if (membershipError) {
+            console.error(
+              "Community membership lookup error:",
+              membershipError
+            );
+
+            return {
+              success: false,
+              message:
+                "We couldn't verify your community membership. Please try again.",
+            };
+          }
+
+          if (!membership) {
+            return {
+              success: false,
+              message:
+                `You must join ${community.name} before you can post there.`,
+            };
+          }
+        }
 
         const image = input.image;
 
@@ -1631,6 +1714,7 @@ export const server = {
             .insert({
               user_id: user.id,
               content,
+              community_slug: communitySlug,
               image_url: imageUrl,
               link_url:
                 linkPreview.linkUrl,
@@ -1666,7 +1750,9 @@ export const server = {
         return {
           success: true,
           message:
-            "Your post has been published.",
+            communitySlug
+              ? "Your post has been published to the community."
+              : "Your post has been published.",
         };
       } catch (error) {
         console.error(

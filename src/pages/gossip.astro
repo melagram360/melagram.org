@@ -1,0 +1,656 @@
+---
+import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+type Story = {
+  id: string;
+  title: string;
+  url: string;
+  source: string;
+  category: string;
+  publishedAt: string;
+  description: string;
+  imageUrl: string | null;
+};
+
+const feeds = [
+  { name: "TMZ", url: "https://www.tmz.com/rss.xml", category: "Celebrity" },
+  { name: "People", url: "https://people.com/feed", category: "Celebrity" },
+  { name: "E! News", url: "https://www.eonline.com/syndication/feeds/rssfeeds/topstories.xml", category: "Celebrity" },
+  { name: "Page Six", url: "https://pagesix.com/feed/", category: "Celebrity" },
+  { name: "Variety", url: "https://variety.com/feed/", category: "Movies & TV" },
+  { name: "Billboard", url: "https://www.billboard.com/feed/", category: "Music" },
+];
+
+const decodeEntities = (value: string) =>
+  value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, "$1")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) =>
+      String.fromCodePoint(parseInt(hex, 16))
+    )
+    .replace(/&#([0-9]+);/g, (_, num) =>
+      String.fromCodePoint(parseInt(num, 10))
+    );
+
+const stripHtml = (value: string) =>
+  decodeEntities(value)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const getTag = (block: string, tag: string) => {
+  const match = block.match(
+    new RegExp(`<${escapeRegExp(tag)}(?:\\s[^>]*)?>([\\s\\S]*?)</${escapeRegExp(tag)}>`, "i")
+  );
+  return match ? match[1].trim() : "";
+};
+
+const getAttr = (block: string, tag: string, attr: string) => {
+  const match = block.match(
+    new RegExp(`<${escapeRegExp(tag)}[^>]*\\s${escapeRegExp(attr)}=["']([^"']+)["'][^>]*\\/?>`, "i")
+  );
+  return match ? decodeEntities(match[1]) : "";
+};
+
+const normalizeImageUrl = (value: string) => {
+  const cleaned = decodeEntities(value).trim();
+  if (!cleaned) return "";
+  if (cleaned.startsWith("//")) return `https:${cleaned}`;
+  return cleaned;
+};
+
+const getImageFromHtml = (value: string) => {
+  if (!value) return "";
+
+  const html = decodeEntities(value);
+
+  const patterns = [
+    /<img[^>]+(?:src|data-src|data-lazy-src|data-original)=["']([^"']+)["']/i,
+    /<img[^>]+srcset=["']([^"']+)["']/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (!match) continue;
+
+    const raw = match[1].trim();
+
+    if (pattern.source.includes("srcset")) {
+      const first = raw
+        .split(",")
+        .map((part) => part.trim().split(/\s+/)[0])
+        .find(Boolean);
+
+      const normalized = normalizeImageUrl(first || "");
+      if (normalized) return normalized;
+    } else {
+      const normalized = normalizeImageUrl(raw);
+      if (normalized) return normalized;
+    }
+  }
+
+  return "";
+};
+
+const getStoryImage = (block: string) => {
+  const directImage =
+    getAttr(block, "media:content", "url") ||
+    getAttr(block, "media:thumbnail", "url") ||
+    getAttr(block, "enclosure", "url");
+
+  if (directImage) return normalizeImageUrl(directImage);
+
+  const encodedContent = getTag(block, "content:encoded");
+  const description = getTag(block, "description");
+
+  const htmlImage =
+    getImageFromHtml(encodedContent) ||
+    getImageFromHtml(description);
+
+  return htmlImage || null;
+};
+
+const parseFeed = async (
+  feed: (typeof feeds)[number]
+): Promise<Story[]> => {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(feed.url, {
+      headers: {
+        Accept: "application/rss+xml, application/xml, text/xml, */*",
+        "User-Agent": "Melagram/1.0 (+https://melagram.org)",
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) return [];
+
+    const xml = await response.text();
+    const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) ?? [];
+
+    return blocks.slice(0, 15).map((block, index) => {
+      const title = stripHtml(getTag(block, "title"));
+      const url = decodeEntities(getTag(block, "link"));
+      const description = stripHtml(
+        getTag(block, "description") ||
+        getTag(block, "content:encoded")
+      );
+      const pubDate = getTag(block, "pubDate");
+      const imageUrl = getStoryImage(block);
+
+      const lower = `${title} ${description}`.toLowerCase();
+
+      let category = feed.category;
+
+      if (
+        /tiktok|instagram|viral|influencer|creator|internet|social media|youtube/i.test(
+          lower
+        )
+      ) {
+        category = "Internet";
+      } else if (
+        /reality|love island|real housewives|bachelor|bachelorette|survivor|housewives|90 day/i.test(
+          lower
+        )
+      ) {
+        category = "Reality TV";
+      } else if (
+        /music|album|single|rapper|rapper|singer|billboard|tour|concert|grammy/i.test(
+          lower
+        )
+      ) {
+        category = "Music";
+      } else if (
+        /movie|film|television|tv|series|show|netflix|hulu|disney|hbo|actor|actress/i.test(
+          lower
+        )
+      ) {
+        category = "Movies & TV";
+      }
+
+      return {
+        id: `${feed.name}-${index}-${url}`,
+        title,
+        url,
+        source: feed.name,
+        category,
+        publishedAt: pubDate,
+        description: description.slice(0, 220),
+        imageUrl,
+      };
+    }).filter((story) => story.title && story.url);
+  } catch {
+    return [];
+  }
+};
+
+const feedResults = await Promise.all(feeds.map(parseFeed));
+
+const stories = feedResults
+  .flat()
+  .filter((story, index, all) =>
+    all.findIndex((item) => item.url === story.url) === index
+  )
+  .sort((a, b) => {
+    const aTime = Date.parse(a.publishedAt) || 0;
+    const bTime = Date.parse(b.publishedAt) || 0;
+    return bTime - aTime;
+  })
+  .slice(0, 36);
+
+const categories = [
+  "All Tea",
+  "Celebrity",
+  "Music",
+  "Movies & TV",
+  "Internet",
+  "Reality TV",
+];
+
+const leadStory = stories[0] ?? null;
+const secondaryStories = stories.slice(1, 5);
+const feedStories = stories.slice(5);
+
+const formatDate = (value: string) => {
+  const time = Date.parse(value);
+  if (!time) return "Latest";
+  return new Date(time).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content="The latest celebrity tea, entertainment news, music, reality TV, viral stories, and internet drama on Melagram."
+    />
+    <title>The Gossip Column — Melagram</title>
+  </head>
+
+  <body>
+    <div class="min-h-screen overflow-hidden bg-[#050208] text-[#fff7e5]">
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+      <header class="relative z-20 border-b border-[#d9ad55]/30 bg-[#07030d]/90 backdrop-blur">
+        <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-10">
+          <a href="/" class="flex items-center gap-3" aria-label="Melagram Home">
+            <div class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#1a0827] text-[#ffe8a6] shadow-[0_0_18px_rgba(109,25,201,.4)]">
+              M
+            </div>
+            <span class="display hidden text-lg tracking-[.18em] text-[#ffe8a6] sm:block">
+              MELAGRAM
+            </span>
+          </a>
+
+          <div class="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[.22em] text-white/75 md:flex">
+            <a class="nav-link" href="/">Home</a>
+            <a class="nav-link" href="/discover">Discover</a>
+            <a class="nav-link" href="/communities">Communities</a>
+            <a class="nav-link text-[#d9ad55]" href="/gossip">Gossip</a>
+            <a class="nav-link" href="/creators">Creators</a>
+          </div>
+
+          <div class="flex items-center gap-3">
+            {user ? (
+              <>
+                <a
+                  href="/dashboard"
+                  class="hidden rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white/80 transition hover:text-[#ffe8a6] sm:block"
+                >
+                  Dashboard
+                </a>
+                <a
+                  href="/profile"
+                  class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
+                >
+                  Profile
+                </a>
+              </>
+            ) : (
+              <a
+                href="/join"
+                class="cta rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white"
+              >
+                Join Melagram
+              </a>
+            )}
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        <section class="relative px-5 pb-12 pt-16 sm:pt-20 lg:px-10">
+          <div class="absolute inset-x-0 top-0 h-[32rem] bg-[radial-gradient(circle_at_center,rgba(109,25,201,.32),transparent_65%)]"></div>
+
+          <div class="relative mx-auto max-w-7xl">
+            <div class="mb-8 flex items-center justify-center gap-4">
+              <div class="gold-line w-16 sm:w-36"></div>
+              <span class="text-[9px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">
+                MELAGRAM EXCLUSIVE
+              </span>
+              <div class="gold-line w-16 sm:w-36"></div>
+            </div>
+
+            <div class="mx-auto max-w-4xl text-center">
+              <p class="text-[10px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">
+                THE GOSSIP COLUMN
+              </p>
+              <h1 class="display mt-4 text-5xl leading-tight text-[#fff4d4] sm:text-7xl">
+                Bring me the tea. ☕
+              </h1>
+              <p class="mx-auto mt-6 max-w-2xl text-base leading-8 text-white/55 sm:text-lg">
+                Celebrity news, music, reality TV, movies, viral moments, and the internet drama everybody is talking about.
+              </p>
+            </div>
+
+            <div class="mx-auto mt-10 max-w-2xl">
+              <div class="luxury-panel gold-border rounded-2xl p-2">
+                <div class="flex items-center gap-3 rounded-xl bg-black/30 px-4 py-3">
+                  <span class="text-xl text-[#d9ad55]">⌕</span>
+                  <input
+                    id="gossip-search"
+                    type="search"
+                    placeholder="Search the tea..."
+                    class="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="border-y border-[#d9ad55]/20 bg-[#08030f]/80 px-5 py-5 lg:px-10">
+          <div class="mx-auto max-w-7xl">
+            <div class="mb-3 flex items-center gap-3">
+              <span class="text-[9px] font-bold uppercase tracking-[.4em] text-[#d9ad55]">
+                What's Hot
+              </span>
+              <div class="h-px flex-1 bg-gradient-to-r from-[#d9ad55]/60 to-transparent"></div>
+            </div>
+
+            <div class="flex gap-2 overflow-x-auto pb-1" id="gossip-filters">
+              {categories.map((category, index) => (
+                <button
+                  type="button"
+                  data-category={category}
+                  aria-pressed={index === 0 ? "true" : "false"}
+                  class:list={[
+                    "gossip-filter whitespace-nowrap rounded-full border px-4 py-2 text-[9px] font-bold uppercase tracking-[.12em] transition",
+                    index === 0
+                      ? "border-[#d9ad55] bg-[#d9ad55] text-black"
+                      : "border-[#d9ad55]/25 bg-black/20 text-white/55 hover:border-[#d9ad55]/70 hover:text-[#ffe8a6]"
+                  ]}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section class="px-5 py-14 lg:px-10">
+          <div class="mx-auto max-w-7xl">
+            <div class="mb-10 flex items-end justify-between gap-5">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-[.45em] text-[#d9ad55]">Right Now</p>
+                <h2 class="display mt-3 text-4xl text-[#fff4d4] sm:text-5xl">The Tea Is Hot</h2>
+              </div>
+              <p class="hidden max-w-sm text-right text-xs leading-6 text-white/35 sm:block">
+                Melagram curates headlines from entertainment and culture sources. Click through to read the full story from the original publisher.
+              </p>
+            </div>
+
+            {leadStory ? (
+              <div class="grid gap-6 lg:grid-cols-[1.4fr_.8fr]">
+                <a
+                  href={leadStory.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="group luxury-panel gold-border overflow-hidden rounded-[2rem]"
+                  data-story
+                  data-category={leadStory.category}
+                  data-search={`${leadStory.title} ${leadStory.source} ${leadStory.category}`.toLowerCase()}
+                >
+                  {leadStory.imageUrl ? (
+                    <div class="relative aspect-[16/9] overflow-hidden bg-black">
+                      <img
+                        src={leadStory.imageUrl}
+                        alt=""
+                        class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                        loading="eager"
+                      />
+                      <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent"></div>
+                      <span class="absolute left-5 top-5 rounded-full border border-[#d9ad55]/50 bg-black/65 px-3 py-1 text-[9px] font-bold uppercase tracking-[.18em] text-[#ffe8a6]">
+                        Breaking Tea
+                      </span>
+                    </div>
+                  ) : null}
+
+                  <div class="p-6 sm:p-8">
+                    <div class="flex items-center gap-3 text-[9px] font-bold uppercase tracking-[.18em] text-[#d9ad55]">
+                      <span>{leadStory.source}</span>
+                      <span class="text-white/20">•</span>
+                      <span>{formatDate(leadStory.publishedAt)}</span>
+                    </div>
+                    <h3 class="display mt-3 text-3xl leading-tight text-[#ffe8a6] sm:text-4xl">
+                      {leadStory.title}
+                    </h3>
+                    {leadStory.description && (
+                      <p class="mt-4 text-sm leading-7 text-white/50">
+                        {leadStory.description}
+                      </p>
+                    )}
+                    <span class="mt-6 inline-flex rounded-lg border border-[#d9ad55]/50 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6]">
+                      Read Full Story ↗
+                    </span>
+                  </div>
+                </a>
+
+                <div class="space-y-4">
+                  {secondaryStories.map((story) => (
+                    <a
+                      href={story.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="group flex gap-4 rounded-2xl border border-[#d9ad55]/20 bg-black/20 p-4 transition hover:border-[#d9ad55]/60 hover:bg-[#160722]/60"
+                      data-story
+                      data-category={story.category}
+                      data-search={`${story.title} ${story.source} ${story.category}`.toLowerCase()}
+                    >
+                      {story.imageUrl ? (
+                        <img
+                          src={story.imageUrl}
+                          alt=""
+                          class="h-24 w-28 shrink-0 rounded-xl object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div class="grid h-24 w-28 shrink-0 place-items-center rounded-xl border border-[#d9ad55]/20 bg-[#160722] text-xl">
+                          ☕
+                        </div>
+                      )}
+                      <div class="min-w-0">
+                        <p class="text-[9px] font-bold uppercase tracking-[.15em] text-[#d9ad55]">
+                          {story.source}
+                        </p>
+                        <h3 class="mt-2 line-clamp-3 text-sm font-semibold leading-6 text-white/85 transition group-hover:text-[#ffe8a6]">
+                          {story.title}
+                        </h3>
+                        <p class="mt-2 text-[10px] text-white/30">{formatDate(story.publishedAt)}</p>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div class="luxury-panel gold-border rounded-2xl p-10 text-center">
+                <p class="text-sm text-white/50">
+                  The tea service is temporarily unavailable. Try refreshing in a moment.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section class="border-y border-[#d9ad55]/20 bg-black/20 px-5 py-14 lg:px-10">
+          <div class="mx-auto max-w-7xl">
+            <div class="mb-8 flex items-end justify-between gap-5">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-[.45em] text-[#d9ad55]">More Tea</p>
+                <h2 class="display mt-3 text-4xl text-[#fff4d4]">What's Everyone Talking About?</h2>
+              </div>
+              <span class="text-[10px] uppercase tracking-wider text-white/25">
+                <span id="gossip-result-count">{stories.length} stories loaded</span>
+              </span>
+            </div>
+
+            <div id="gossip-grid" class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {feedStories.map((story) => (
+                <a
+                  href={story.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="group luxury-panel gold-border overflow-hidden rounded-2xl transition hover:-translate-y-1"
+                  data-story
+                  data-category={story.category}
+                  data-search={`${story.title} ${story.source} ${story.category}`.toLowerCase()}
+                >
+                  {story.imageUrl ? (
+                    <div class="aspect-[16/9] overflow-hidden bg-black">
+                      <img
+                        src={story.imageUrl}
+                        alt=""
+                        class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : (
+                    <div class="grid aspect-[16/9] place-items-center bg-[#160722] text-3xl">
+                      ☕
+                    </div>
+                  )}
+
+                  <div class="p-5">
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="text-[9px] font-bold uppercase tracking-[.18em] text-[#d9ad55]">
+                        {story.source}
+                      </span>
+                      <span class="text-[9px] uppercase tracking-wider text-white/25">
+                        {story.category}
+                      </span>
+                    </div>
+                    <h3 class="mt-3 text-base font-semibold leading-6 text-white/85 transition group-hover:text-[#ffe8a6]">
+                      {story.title}
+                    </h3>
+                    <p class="mt-3 text-[10px] text-white/30">
+                      {formatDate(story.publishedAt)}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            <div id="gossip-empty" class="luxury-panel gold-border mt-6 hidden rounded-2xl p-10 text-center">
+              <p class="text-sm text-white/50">No tea matches that search or category.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="px-5 py-16 lg:px-10">
+          <div class="luxury-panel gold-border mx-auto max-w-5xl rounded-[2rem] px-6 py-12 text-center sm:px-12">
+            <p class="text-[10px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">Melagram Reactions</p>
+            <h2 class="display mt-4 text-4xl text-[#fff4d4] sm:text-5xl">
+              Read the tea. Then bring it to the conversation.
+            </h2>
+            <p class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/50">
+              Find the community that fits the story, share the article, and let Melagram have the conversation.
+            </p>
+            <div class="mt-8 flex flex-wrap justify-center gap-3">
+              <a href="/communities" class="cta rounded-xl px-7 py-3 text-xs font-bold uppercase tracking-wider text-white">
+                Explore Communities
+              </a>
+              <a href="/create-post" class="rounded-xl border border-[#d9ad55]/50 px-7 py-3 text-xs font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black">
+                Start a Post
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="border-t border-[#d9ad55]/20 bg-[#050208] px-5 py-10 lg:px-10">
+        <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
+          <div>
+            <p class="display text-lg tracking-[.2em] text-[#ffe8a6]">MELAGRAM</p>
+            <p class="mt-1 text-[10px] uppercase tracking-[.3em] text-white/35">
+              Connect. Network. Create. Build Community.
+            </p>
+          </div>
+          <p class="text-xs text-white/30">© 2026 Melagram. All rights reserved.</p>
+        </div>
+      </footer>
+
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+    </div>
+
+    <script>
+      const initGossipFilters = () => {
+        const searchInput = document.getElementById("gossip-search") as HTMLInputElement | null;
+        const filterButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".gossip-filter"));
+        const stories = Array.from(document.querySelectorAll<HTMLElement>("[data-story]"));
+        const emptyState = document.getElementById("gossip-empty");
+        const resultCount = document.getElementById("gossip-result-count");
+        let activeCategory = "All Tea";
+
+        if (!searchInput || stories.length === 0) return;
+
+        const updateGossip = () => {
+          const query = searchInput.value.trim().toLowerCase();
+          let visibleCount = 0;
+
+          stories.forEach((story) => {
+            const category = (story.dataset.category || "").toLowerCase();
+            const searchable = (story.dataset.search || story.textContent || "").toLowerCase();
+            const matchesCategory =
+              activeCategory === "All Tea" || category === activeCategory.toLowerCase();
+            const matchesSearch = query === "" || searchable.includes(query);
+            const visible = matchesCategory && matchesSearch;
+
+            story.hidden = !visible;
+            story.classList.toggle("hidden", !visible);
+
+            if (visible) visibleCount += 1;
+          });
+
+          if (emptyState) {
+            emptyState.classList.toggle("hidden", visibleCount !== 0);
+          }
+
+          if (resultCount) {
+            resultCount.textContent = query || activeCategory !== "All Tea"
+              ? `${visibleCount} ${visibleCount === 1 ? "story" : "stories"} found`
+              : `${stories.length} stories loaded`;
+          }
+        };
+
+        filterButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            activeCategory = button.dataset.category || "All Tea";
+
+            filterButtons.forEach((item) => {
+              const active = item === button;
+              item.setAttribute("aria-pressed", active ? "true" : "false");
+              item.classList.toggle("border-[#d9ad55]", active);
+              item.classList.toggle("bg-[#d9ad55]", active);
+              item.classList.toggle("text-black", active);
+              item.classList.toggle("border-[#d9ad55]/25", !active);
+              item.classList.toggle("bg-black/20", !active);
+              item.classList.toggle("text-white/55", !active);
+            });
+
+            updateGossip();
+          });
+        });
+
+        searchInput.addEventListener("input", updateGossip);
+        searchInput.addEventListener("search", updateGossip);
+        updateGossip();
+      };
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initGossipFilters, { once: true });
+      } else {
+        initGossipFilters();
+      }
+    </script>
+  </body>
+</html>

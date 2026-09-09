@@ -11,42 +11,23 @@ const {
   data: { user },
 } = await supabase.auth.getUser();
 
-/*
- * Pull communities directly from Supabase.
- * This keeps the directory honest and automatically picks up
- * new communities without hard-coding them into this page.
- */
-const {
-  data: communities,
-  error: communitiesError,
-} = await supabase
+const { data: communities, error: communitiesError } = await supabase
   .from("communities")
   .select("id, slug, name, category, description, icon, created_at")
   .order("created_at", { ascending: true });
 
-const communityList = communities || [];
+const communityList = communities ?? [];
 
-/*
- * Get real membership counts for every community.
- * We use exact database counts so the numbers stay accurate
- * as Melagram grows.
- */
 const communitiesWithCounts = await Promise.all(
   communityList.map(async (community) => {
-    const {
-      count,
-      error,
-    } = await supabase
+    const { count, error } = await supabase
       .from("community_members")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
+      .select("*", { count: "exact", head: true })
       .eq("community_id", community.id);
 
     return {
       ...community,
-      memberCount: error ? 0 : count || 0,
+      memberCount: error ? 0 : count ?? 0,
     };
   })
 );
@@ -62,13 +43,8 @@ const categories = [
   ),
 ];
 
-const formatMemberCount = (count: number) => {
-  if (count === 1) {
-    return "1 member";
-  }
-
-  return `${count.toLocaleString()} members`;
-};
+const formatMemberCount = (count: number) =>
+  count === 1 ? "1 member" : `${count.toLocaleString()} members`;
 ---
 
 <html lang="en">
@@ -238,29 +214,26 @@ const formatMemberCount = (count: number) => {
 
         </section>
 
-        <!-- CATEGORIES -->
-        <section class="border-y border-[#d9ad55]/20 bg-black/30 px-5 py-6 lg:px-10">
-
-          <div class="mx-auto flex max-w-7xl gap-3 overflow-x-auto pb-1">
-
-            {categories.map((category, index) => (
-
-              <button
-                type="button"
-                class:list={[
-                  "whitespace-nowrap rounded-full border px-5 py-2.5 text-[10px] font-bold uppercase tracking-wider transition",
+        <!-- CATEGORY FILTERS -->
+        <section class="border-y border-[#d9ad55]/20 bg-[#08030f]/80 px-5 py-5 lg:px-10">
+          <div class="mx-auto max-w-7xl">
+            <div class="mb-3 flex items-center gap-3">
+              <span class="text-[9px] font-bold uppercase tracking-[.4em] text-[#d9ad55]">Communities</span>
+              <div class="h-px flex-1 bg-gradient-to-r from-[#d9ad55]/60 to-transparent"></div>
+            </div>
+            <div class="flex gap-2 overflow-x-auto pb-1" id="community-filters">
+              {categories.map((category, index) => (
+                <button type="button" data-category={category} aria-pressed={index === 0 ? "true" : "false"} class:list={[
+                  "community-filter whitespace-nowrap rounded-full border px-4 py-2 text-[9px] font-bold uppercase tracking-[.12em] transition",
                   index === 0
                     ? "border-[#d9ad55] bg-[#d9ad55] text-black"
-                    : "border-[#d9ad55]/30 text-white/60 hover:border-[#d9ad55] hover:text-[#ffe8a6]"
-                ]}
-              >
-                {category}
-              </button>
-
-            ))}
-
+                    : "border-[#d9ad55]/25 bg-black/20 text-white/55 hover:border-[#d9ad55]/70 hover:text-[#ffe8a6]"
+                ]}>
+                  {category === "All Communities" ? "All" : category}
+                </button>
+              ))}
+            </div>
           </div>
-
         </section>
 
         <!-- FEATURED COMMUNITIES -->
@@ -291,64 +264,74 @@ const formatMemberCount = (count: number) => {
 
             <!-- COMMUNITY GRID -->
             {communitiesError ? (
-              <div class="luxury-panel gold-border rounded-2xl p-8 text-center">
-                <p class="text-sm text-white/60">
+              <div class="luxury-panel gold-border rounded-2xl p-10 text-center">
+                <p class="text-sm text-white/55">
                   We couldn't load the communities right now. Please refresh and try again.
                 </p>
               </div>
             ) : communityList.length === 0 ? (
-              <div class="luxury-panel gold-border rounded-2xl p-8 text-center">
-                <p class="text-sm text-white/60">
+              <div class="luxury-panel gold-border rounded-2xl p-10 text-center">
+                <p class="text-sm text-white/55">
                   No communities are available yet.
                 </p>
               </div>
             ) : (
-              <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 
-                {communitiesWithCounts.map((community) => (
+              {communitiesWithCounts.map((community) => (
 
-                  <a
-                    href={`/communities/${community.slug}`}
-                    class="feature-card luxury-panel gold-border block rounded-2xl p-7"
-                  >
+                <a
+                  href={`/communities/${community.slug}`}
+                  class="feature-card luxury-panel gold-border block rounded-2xl p-7"
+                  data-community-card
+                  data-community-category={community.category}
+                  data-community-search={`${community.name} ${community.category} ${community.description}`.toLowerCase()}
+                >
 
-                    <div class="flex items-start justify-between gap-4">
+                  <div class="flex items-start justify-between gap-4">
 
-                      <div class="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-[#d9ad55]/60 bg-[#160722] text-2xl">
-                        {community.icon}
-                      </div>
-
-                      <span class="rounded-full border border-[#d9ad55]/25 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-[#d9ad55]">
-                        {community.category}
-                      </span>
-
+                    <div class="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-[#d9ad55]/60 bg-[#160722] text-2xl">
+                      {community.icon}
                     </div>
 
-                    <h3 class="display mt-6 text-2xl text-[#ffe8a6]">
-                      {community.name}
-                    </h3>
+                    <span class="rounded-full border border-[#d9ad55]/25 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-[#d9ad55]">
+                      {community.category}
+                    </span>
 
-                    <p class="mt-3 text-sm leading-7 text-white/50">
-                      {community.description}
-                    </p>
+                  </div>
 
-                    <div class="mt-6 flex items-center justify-between border-t border-[#d9ad55]/15 pt-5">
+                  <h3 class="display mt-6 text-2xl text-[#ffe8a6]">
+                    {community.name}
+                  </h3>
 
-                      <span class="text-[10px] uppercase tracking-wider text-white/35">
-                        {formatMemberCount(community.memberCount)}
-                      </span>
+                  <p class="mt-3 text-sm leading-7 text-white/50">
+                    {community.description}
+                  </p>
 
-                      <span class="rounded-lg border border-[#d9ad55]/60 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black">
-                        View Community
-                      </span>
+                  <div class="mt-6 flex items-center justify-between border-t border-[#d9ad55]/15 pt-5">
 
-                    </div>
+                    <span class="text-[10px] uppercase tracking-wider text-white/35">
+                      {formatMemberCount(community.memberCount)}
+                    </span>
 
-                  </a>
+                    <span class="rounded-lg border border-[#d9ad55]/60 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#d9ad55] hover:text-black">
+                      View Community
+                    </span>
 
-                ))}
+                  </div>
 
-              </div>
+                </a>
+
+              ))}
+
+            </div>
+
+            <div id="community-empty-state" class="luxury-panel gold-border hidden rounded-2xl p-10 text-center">
+              <p class="text-sm text-white/55">
+                No communities match your search or filter.
+              </p>
+            </div>
+            </div>
             )}
 
           </div>
@@ -385,6 +368,48 @@ const formatMemberCount = (count: number) => {
         </section>
 
       </main>
+
+
+      <!-- COMMUNITY DIRECTORY INTERACTIONS -->
+      <script>
+        const searchInput = document.querySelector('input[type="search"]');
+        const filterButtons = document.querySelectorAll<HTMLButtonElement>('.community-filter');
+        const cards = document.querySelectorAll<HTMLElement>('[data-community-card]');
+        const emptyState = document.getElementById('community-empty-state');
+        let activeCategory = 'All Communities';
+
+        const updateCommunityDirectory = () => {
+          const query = (searchInput as HTMLInputElement | null)?.value.trim().toLowerCase() || '';
+          let visibleCount = 0;
+          cards.forEach((card) => {
+            const category = card.dataset.communityCategory || '';
+            const searchable = card.dataset.communitySearch || '';
+            const visible = (activeCategory === 'All Communities' || category === activeCategory) && (!query || searchable.includes(query));
+            card.classList.toggle('hidden', !visible);
+            if (visible) visibleCount += 1;
+          });
+          emptyState?.classList.toggle('hidden', visibleCount !== 0);
+        };
+
+        filterButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            activeCategory = button.dataset.category || 'All Communities';
+            filterButtons.forEach((item) => {
+              const active = item === button;
+              item.setAttribute('aria-pressed', active ? 'true' : 'false');
+              item.classList.toggle('border-[#d9ad55]', active);
+              item.classList.toggle('bg-[#d9ad55]', active);
+              item.classList.toggle('text-black', active);
+              item.classList.toggle('border-[#d9ad55]/25', !active);
+              item.classList.toggle('bg-black/20', !active);
+              item.classList.toggle('text-white/55', !active);
+            });
+            updateCommunityDirectory();
+          });
+        });
+
+        searchInput?.addEventListener('input', updateCommunityDirectory);
+      </script>
 
       <!-- FOOTER -->
       <footer class="border-t border-[#d9ad55]/20 bg-[#050208] px-5 py-10 lg:px-10">

@@ -1,0 +1,361 @@
+---
+import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+  env: Astro.locals.runtime?.env,
+});
+
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const displayName =
+  user.user_metadata?.full_name ||
+  user.user_metadata?.username ||
+  user.email?.split("@")[0] ||
+  "Member";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content="Melagram private messages." />
+    <title>Messages — Melagram</title>
+  </head>
+
+  <body>
+    <main class="min-h-screen bg-[#050208] text-[#fff7e5]">
+      <div class="h-1 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+      <nav class="border-b border-[#d9ad55]/20 bg-[#07030d]/90 backdrop-blur-xl">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
+          <a href="/dashboard" class="flex items-center gap-3">
+            <div class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#1a0827] text-[#ffe8a6]">
+              M
+            </div>
+            <span class="display hidden text-lg tracking-[.18em] text-[#ffe8a6] sm:block">MELAGRAM</span>
+          </a>
+
+          <div class="hidden items-center gap-7 text-[10px] font-semibold uppercase tracking-[.2em] text-white/60 md:flex">
+            <a class="nav-link" href="/dashboard">Home</a>
+            <a class="nav-link" href="/discover">Discover</a>
+            <a class="nav-link" href="/communities">Communities</a>
+            <a class="nav-link" href="/gossip">Gossip</a>
+          </div>
+
+          <a href="/profile" class="rounded-full border border-[#d9ad55]/50 px-4 py-2 text-[10px] font-bold uppercase tracking-[.18em] text-[#ffe8a6]">
+            {displayName}
+          </a>
+        </div>
+      </nav>
+
+      <section class="mx-auto max-w-7xl px-5 py-10 sm:px-8 lg:py-14">
+        <div class="mb-8">
+          <p class="text-[10px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">Private</p>
+          <h1 class="display mt-3 text-4xl text-[#ffe8a6] sm:text-5xl">Messages</h1>
+          <p class="mt-3 max-w-2xl text-sm leading-7 text-white/50">
+            Start a private conversation with another Melagram member.
+          </p>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-[360px_1fr]">
+          <aside class="gold-border luxury-panel rounded-2xl p-5">
+            <div class="mb-5">
+              <label for="member-search" class="text-[9px] font-bold uppercase tracking-[.3em] text-[#d9ad55]">
+                New Message
+              </label>
+              <div class="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-4 py-3">
+                <span class="text-white/35">⌕</span>
+                <input
+                  id="member-search"
+                  type="search"
+                  placeholder="Search members..."
+                  autocomplete="off"
+                  class="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
+            <div id="user-results" class="space-y-2"></div>
+
+            <div class="gold-line my-6"></div>
+
+            <p class="mb-3 text-[9px] font-bold uppercase tracking-[.3em] text-[#d9ad55]">
+              Conversations
+            </p>
+            <div id="conversation-list" class="space-y-2">
+              <p class="rounded-xl border border-white/5 bg-black/20 p-4 text-sm text-white/35">
+                Loading conversations...
+              </p>
+            </div>
+          </aside>
+
+          <section class="gold-border luxury-panel flex min-h-[620px] flex-col overflow-hidden rounded-2xl">
+            <div id="chat-header" class="border-b border-white/10 px-6 py-5">
+              <p class="text-[9px] font-bold uppercase tracking-[.3em] text-[#d9ad55]">Your Inbox</p>
+              <h2 class="display mt-2 text-2xl text-[#ffe8a6]">Select a conversation</h2>
+              <p class="mt-2 text-sm text-white/40">Choose someone on the left to start talking.</p>
+            </div>
+
+            <div id="message-list" class="flex-1 space-y-3 overflow-y-auto px-6 py-6">
+              <div class="grid min-h-[430px] place-items-center text-center">
+                <div>
+                  <div class="text-5xl">💬</div>
+                  <h3 class="display mt-4 text-2xl text-[#ffe8a6]">Private conversations</h3>
+                  <p class="mx-auto mt-3 max-w-md text-sm leading-6 text-white/40">
+                    Search for a member or select an existing conversation to get started.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form id="message-form" class="hidden border-t border-white/10 p-4">
+              <div class="flex gap-3">
+                <textarea
+                  id="message-input"
+                  rows="2"
+                  maxlength="5000"
+                  placeholder="Write a message..."
+                  class="min-h-[58px] flex-1 resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition focus:border-[#d9ad55]/60"
+                ></textarea>
+                <button
+                  type="submit"
+                  class="self-end rounded-xl bg-[#6d19c9] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#7d27dc]"
+                >
+                  Send
+                </button>
+              </div>
+              <p id="message-status" class="mt-2 text-xs text-white/35"></p>
+            </form>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script define:vars={{ currentUserId: user.id }}>
+      const viewerId = currentUserId;
+
+      const searchInput = document.querySelector("#member-search");
+      const userResults = document.querySelector("#user-results");
+      const conversationList = document.querySelector("#conversation-list");
+      const chatHeader = document.querySelector("#chat-header");
+      const messageList = document.querySelector("#message-list");
+      const messageForm = document.querySelector("#message-form");
+      const messageInput = document.querySelector("#message-input");
+      const messageStatus = document.querySelector("#message-status");
+
+      let activeConversationId = null;
+      let searchTimer = null;
+
+      const escapeHtml = (value) =>
+        String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+
+      const personName = (person) =>
+        person?.full_name || person?.username || "Member";
+
+      const initials = (person) =>
+        personName(person)
+          .split(/\s+/)
+          .map((part) => part.charAt(0))
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
+
+      async function api(url, options = {}) {
+        const response = await fetch(url, options);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Something went wrong.");
+        return data;
+      }
+
+      function avatar(person) {
+        if (person?.avatar_url) {
+          return `<img src="${escapeHtml(person.avatar_url)}" alt="" class="h-11 w-11 rounded-full border border-[#d9ad55]/50 object-cover" />`;
+        }
+        return `<div class="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#d9ad55]/50 bg-[#1a0827] text-xs font-bold text-[#ffe8a6]">${escapeHtml(initials(person))}</div>`;
+      }
+
+      async function searchMembers(query) {
+        if (query.trim().length < 2) {
+          userResults.innerHTML = "";
+          return;
+        }
+
+        try {
+          const data = await api(`/api/messages?mode=users&q=${encodeURIComponent(query.trim())}`);
+          if (!data.users?.length) {
+            userResults.innerHTML = `<p class="rounded-xl border border-white/5 p-4 text-sm text-white/35">No members found.</p>`;
+            return;
+          }
+
+          userResults.innerHTML = data.users.map((person) => `
+            <button type="button" data-user-id="${escapeHtml(person.id)}"
+              class="user-result flex w-full items-center gap-3 rounded-xl border border-white/5 bg-black/20 p-3 text-left transition hover:border-[#d9ad55]/40 hover:bg-[#6d19c9]/10">
+              ${avatar(person)}
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-semibold text-[#ffe8a6]">${escapeHtml(personName(person))}</span>
+                <span class="block truncate text-xs text-white/35">@${escapeHtml(person.username || "member")}</span>
+              </span>
+            </button>
+          `).join("");
+        } catch (error) {
+          userResults.innerHTML = `<p class="text-xs text-red-300">${escapeHtml(error.message)}</p>`;
+        }
+      }
+
+      async function loadConversations() {
+        try {
+          const data = await api("/api/messages?mode=conversations");
+          if (!data.conversations?.length) {
+            conversationList.innerHTML = `<p class="rounded-xl border border-white/5 bg-black/20 p-4 text-sm leading-6 text-white/35">No conversations yet.<br />Search for a member above.</p>`;
+            return;
+          }
+
+          conversationList.innerHTML = data.conversations.map((conversation) => {
+            const person = conversation.otherUser;
+            return `
+              <button type="button" data-conversation-id="${escapeHtml(conversation.id)}"
+                class="conversation-item flex w-full items-center gap-3 rounded-xl border border-white/5 bg-black/20 p-3 text-left transition hover:border-[#d9ad55]/40 hover:bg-[#6d19c9]/10">
+                ${avatar(person)}
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-semibold text-[#ffe8a6]">${escapeHtml(personName(person))}</span>
+                  <span class="block truncate text-xs text-white/35">@${escapeHtml(person?.username || "member")}</span>
+                </span>
+              </button>
+            `;
+          }).join("");
+        } catch (error) {
+          conversationList.innerHTML = `<p class="text-xs text-red-300">${escapeHtml(error.message)}</p>`;
+        }
+      }
+
+      async function startConversation(userId) {
+        try {
+          const data = await api("/api/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "start", recipientId: userId }),
+          });
+
+          searchInput.value = "";
+          userResults.innerHTML = "";
+          await loadConversations();
+          await openConversation(data.conversationId);
+        } catch (error) {
+          messageStatus.textContent = error.message;
+        }
+      }
+
+      async function openConversation(conversationId) {
+        activeConversationId = conversationId;
+        messageForm.classList.remove("hidden");
+
+        document.querySelectorAll(".conversation-item").forEach((button) => {
+          button.classList.toggle(
+            "border-[#d9ad55]/60",
+            button.dataset.conversationId === conversationId
+          );
+        });
+
+        try {
+          const data = await api(`/api/messages?mode=messages&conversationId=${encodeURIComponent(conversationId)}`);
+          const selected = [...document.querySelectorAll(".conversation-item")]
+            .find((button) => button.dataset.conversationId === conversationId);
+
+          const name = selected?.querySelector("span span")?.textContent || "Conversation";
+          chatHeader.innerHTML = `
+            <p class="text-[9px] font-bold uppercase tracking-[.3em] text-[#d9ad55]">Private Conversation</p>
+            <h2 class="display mt-2 text-2xl text-[#ffe8a6]">${escapeHtml(name)}</h2>
+          `;
+
+          if (!data.messages?.length) {
+            messageList.innerHTML = `
+              <div class="grid min-h-[430px] place-items-center text-center">
+                <div>
+                  <div class="text-5xl">👋</div>
+                  <h3 class="display mt-4 text-2xl text-[#ffe8a6]">Say hello.</h3>
+                  <p class="mt-2 text-sm text-white/40">Start the conversation below.</p>
+                </div>
+              </div>
+            `;
+            return;
+          }
+
+          messageList.innerHTML = data.messages.map((message) => {
+            const mine = message.sender_id === viewerId;
+            return `
+              <div class="flex ${mine ? "justify-end" : "justify-start"}">
+                <div class="max-w-[80%] rounded-2xl ${mine ? "rounded-br-md bg-[#6d19c9] text-white" : "rounded-bl-md border border-white/10 bg-black/30 text-white/80"} px-4 py-3">
+                  <p class="whitespace-pre-wrap text-sm leading-6">${escapeHtml(message.body)}</p>
+                  <p class="mt-1 text-[9px] ${mine ? "text-white/55" : "text-white/30"}">${new Date(message.created_at).toLocaleString()}</p>
+                </div>
+              </div>
+            `;
+          }).join("");
+
+          messageList.scrollTop = messageList.scrollHeight;
+        } catch (error) {
+          messageList.innerHTML = `<p class="text-sm text-red-300">${escapeHtml(error.message)}</p>`;
+        }
+      }
+
+      searchInput.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => searchMembers(searchInput.value), 250);
+      });
+
+      userResults.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-user-id]");
+        if (button) startConversation(button.dataset.userId);
+      });
+
+      conversationList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-conversation-id]");
+        if (button) openConversation(button.dataset.conversationId);
+      });
+
+      messageForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const message = messageInput.value.trim();
+
+        if (!activeConversationId || !message) return;
+
+        messageStatus.textContent = "Sending...";
+
+        try {
+          await api("/api/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "send",
+              conversationId: activeConversationId,
+              message,
+            }),
+          });
+
+          messageInput.value = "";
+          messageStatus.textContent = "";
+          await openConversation(activeConversationId);
+          await loadConversations();
+        } catch (error) {
+          messageStatus.textContent = error.message;
+        }
+      });
+
+      loadConversations();
+    </script>
+  </body>
+</html>
