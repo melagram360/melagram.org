@@ -1406,6 +1406,26 @@ export const server = {
         .string()
         .nullable()
         .optional(),
+
+      creator_enabled: z
+        .string()
+        .optional()
+        .default("off"),
+
+      creator_category: z
+        .union([
+          z.enum([
+            "Music",
+            "Writing",
+            "Art & Design",
+            "Film & Video",
+            "Podcasting",
+            "Business",
+          ]),
+          z.literal(""),
+        ])
+        .nullable()
+        .optional(),
     }),
 
     handler: async (input, context) => {
@@ -1428,12 +1448,47 @@ export const server = {
           };
         }
 
-        const avatarUrl =
+        let avatarUrl =
           input.avatar_url?.trim() ||
           null;
 
+        // If no new avatar was submitted, preserve the existing profile photo.
+        if (!avatarUrl) {
+          const { data: existingProfile } =
+            await supabase
+              .from("profiles")
+              .select("avatar_url")
+              .eq("id", user.id)
+              .maybeSingle();
+
+          avatarUrl = existingProfile?.avatar_url ?? null;
+        }
+
         const bio =
           (input.bio ?? "").trim();
+
+        const creatorEnabled =
+          input.creator_enabled === "on" ||
+          input.creator_enabled === "true";
+
+        const creatorCategoryRaw =
+          (input.creator_category ?? "").trim();
+
+        const creatorCategory =
+          creatorEnabled
+            ? creatorCategoryRaw || null
+            : null;
+
+        if (
+          creatorEnabled &&
+          !creatorCategory
+        ) {
+          return {
+            success: false,
+            message:
+              "Please choose a creator category before turning on your Creator Profile.",
+          };
+        }
 
         const { error } =
           await supabase
@@ -1446,6 +1501,10 @@ export const server = {
               bio,
               avatar_url:
                 avatarUrl,
+              creator_enabled:
+                creatorEnabled,
+              creator_category:
+                creatorCategory,
               updated_at:
                 new Date().toISOString(),
             })

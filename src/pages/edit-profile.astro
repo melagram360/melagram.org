@@ -21,7 +21,7 @@ if (!user) {
 
 const { data: profile } = await supabase
   .from("profiles")
-  .select("username, full_name, bio, avatar_url")
+  .select("username, full_name, bio, avatar_url, creator_enabled, creator_category")
   .eq("id", user.id)
   .single();
 
@@ -38,6 +38,8 @@ const username =
 
 const bio = profile?.bio || "";
 const avatarUrl = profile?.avatar_url || "";
+const creatorEnabled = profile?.creator_enabled ?? false;
+const creatorCategory = profile?.creator_category || "";
 
 const initials = displayName
   .split(" ")
@@ -265,6 +267,72 @@ const initials = displayName
               >{bio}</textarea>
             </div>
 
+            <!-- CREATOR PROFILE -->
+            <div class="rounded-2xl border border-[#d9ad55]/20 bg-gradient-to-r from-[#100618] via-[#160722] to-[#100618] p-6 sm:p-7">
+              <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div class="max-w-xl">
+                  <p class="text-[9px] font-bold uppercase tracking-[.35em] text-[#d9ad55]">
+                    CREATOR PROFILE
+                  </p>
+
+                  <h2 class="display mt-2 text-2xl text-[#ffe8a6]">
+                    Enter the Creators Vault
+                  </h2>
+
+                  <p class="mt-3 text-sm leading-6 text-white/45">
+                    Turn this on if you want your profile to be discoverable in the
+                    Melagram Creators Vault.
+                  </p>
+                </div>
+
+                <label class="flex cursor-pointer items-center gap-3">
+                  <span class="text-[9px] font-bold uppercase tracking-[.18em] text-white/50">
+                    Show Me
+                  </span>
+                  <input
+                    id="creator_enabled"
+                    name="creator_enabled"
+                    type="checkbox"
+                    value="true"
+                    checked={creatorEnabled}
+                    class="peer sr-only"
+                  />
+                  <span class="relative h-7 w-12 rounded-full border border-[#d9ad55]/40 bg-black/40 transition peer-checked:border-[#d9ad55] peer-checked:bg-[#6d19c9]">
+                    <span class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white/80 transition peer-checked:translate-x-5 peer-checked:bg-[#ffe8a6]"></span>
+                  </span>
+                </label>
+              </div>
+
+              <div id="creator-category-wrap" class="mt-6 {creatorEnabled ? "" : "opacity-50"}">
+                <label
+                  for="creator_category"
+                  class="mb-2 block text-xs font-semibold uppercase tracking-[.25em] text-[#d9ad55]"
+                >
+                  Creator Category
+                </label>
+
+                <select
+                  id="creator_category"
+                  name="creator_category"
+                  value={creatorCategory}
+                  disabled={!creatorEnabled}
+                  class="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-white outline-none transition focus:border-[#d9ad55]/70 focus:ring-1 focus:ring-[#d9ad55]/30"
+                >
+                  <option value="">Choose your category</option>
+                  <option value="Music" selected={creatorCategory === "Music"}>Music</option>
+                  <option value="Writing" selected={creatorCategory === "Writing"}>Writing</option>
+                  <option value="Art & Design" selected={creatorCategory === "Art & Design"}>Art &amp; Design</option>
+                  <option value="Film & Video" selected={creatorCategory === "Film & Video"}>Film &amp; Video</option>
+                  <option value="Podcasting" selected={creatorCategory === "Podcasting"}>Podcasting</option>
+                  <option value="Business" selected={creatorCategory === "Business"}>Business</option>
+                </select>
+
+                <p id="creator-category-message" class="mt-2 text-xs text-white/35">
+                  Select the category that best represents your creative work.
+                </p>
+              </div>
+            </div>
+
             <!-- PROFILE PHOTO -->
             <div>
               <label
@@ -381,6 +449,18 @@ const initials = displayName
       const usernamePreview =
         document.getElementById("username-preview");
 
+      const creatorEnabledInput =
+        document.getElementById("creator_enabled") as HTMLInputElement | null;
+
+      const creatorCategoryInput =
+        document.getElementById("creator_category") as HTMLSelectElement | null;
+
+      const creatorCategoryWrap =
+        document.getElementById("creator-category-wrap");
+
+      const creatorCategoryMessage =
+        document.getElementById("creator-category-message");
+
       const avatarInput =
         document.getElementById("avatar") as HTMLInputElement | null;
 
@@ -475,6 +555,25 @@ const initials = displayName
           (avatarMessage.textContent = "Photo selected. Save Changes to upload it.");
       }
 
+      function syncCreatorFields() {
+        const enabled = creatorEnabledInput?.checked ?? false;
+
+        if (creatorCategoryInput) {
+          creatorCategoryInput.disabled = !enabled;
+        }
+
+        creatorCategoryWrap?.classList.toggle("opacity-50", !enabled);
+
+        if (creatorCategoryMessage) {
+          creatorCategoryMessage.textContent = enabled
+            ? "Choose the category that best represents your creative work."
+            : "Turn on Creator Profile to appear in the Creators Vault.";
+        }
+      }
+
+      creatorEnabledInput?.addEventListener("change", syncCreatorFields);
+      syncCreatorFields();
+
       avatarInput?.addEventListener("change", () => {
         const file = avatarInput.files?.[0];
 
@@ -525,6 +624,30 @@ const initials = displayName
         }
 
         try {
+          const creatorEnabled =
+            creatorEnabledInput?.checked ?? false;
+
+          const creatorCategory =
+            creatorCategoryInput?.value.trim() || "";
+
+          if (creatorEnabled && !creatorCategory) {
+            creatorCategoryInput?.focus();
+
+            if (creatorCategoryMessage) {
+              creatorCategoryMessage.textContent =
+                "Please choose a creator category before turning on your Creator Profile.";
+              creatorCategoryMessage.classList.add("text-red-300");
+            }
+
+            saveButton.disabled = false;
+            saveButton.textContent = "Save Changes";
+            return;
+          }
+
+          if (creatorCategoryMessage) {
+            creatorCategoryMessage.classList.remove("text-red-300");
+          }
+
           const file = avatarInput?.files?.[0];
 
           if (file) {
@@ -568,6 +691,14 @@ const initials = displayName
           }
 
           profileForm.delete("avatar");
+          profileForm.set(
+            "creator_enabled",
+            creatorEnabled ? "true" : "false"
+          );
+          profileForm.set(
+            "creator_category",
+            creatorEnabled ? creatorCategory : ""
+          );
 
           const updateResult = await actions.updateProfile(profileForm);
 
