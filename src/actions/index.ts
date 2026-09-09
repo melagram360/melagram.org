@@ -1829,6 +1829,137 @@ export const server = {
   }),
 
   /* ========================================
+     UPDATE POST
+  ======================================== */
+
+  updatePost: defineAction({
+    accept: "json",
+
+    input: z.object({
+      postId: z.string().uuid(),
+
+      content: z
+        .string()
+        .trim()
+        .min(
+          1,
+          "Please write something before saving."
+        )
+        .max(
+          2000,
+          "Your post must be 2,000 characters or fewer."
+        ),
+    }),
+
+    handler: async (input, context) => {
+      try {
+        const supabase = createClient({
+          request: context.request,
+          cookies: context.cookies,
+          env: context.locals.runtime.env,
+        });
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          return {
+            success: false,
+            message:
+              "You must be signed in to edit posts.",
+          };
+        }
+
+        const content = input.content.trim();
+
+        const {
+          data: post,
+          error: postLookupError,
+        } = await supabase
+          .from("posts")
+          .select("id, user_id")
+          .eq("id", input.postId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (postLookupError) {
+          console.error(
+            "Update post lookup error:",
+            postLookupError
+          );
+
+          return {
+            success: false,
+            message:
+              "We couldn't find that post. Please try again.",
+          };
+        }
+
+        if (!post) {
+          return {
+            success: false,
+            message:
+              "You can only edit your own posts.",
+          };
+        }
+
+        const linkPreview =
+          await getLinkPreview(content);
+
+        const { error: updateError } =
+          await supabase
+            .from("posts")
+            .update({
+              content,
+              link_url:
+                linkPreview.linkUrl,
+              link_type:
+                linkPreview.linkType,
+              link_title:
+                linkPreview.linkTitle,
+              link_description:
+                linkPreview.linkDescription,
+              link_image_url:
+                linkPreview.linkImageUrl,
+            })
+            .eq("id", input.postId)
+            .eq("user_id", user.id);
+
+        if (updateError) {
+          console.error(
+            "Update post error:",
+            updateError
+          );
+
+          return {
+            success: false,
+            message:
+              "We couldn't save your post changes. Please try again.",
+          };
+        }
+
+        return {
+          success: true,
+          message:
+            "Your post has been updated.",
+        };
+      } catch (error) {
+        console.error(
+          "Update post error:",
+          error
+        );
+
+        return {
+          success: false,
+          message:
+            "Something went wrong while updating your post.",
+        };
+      }
+    },
+  }),
+
+  /* ========================================
      DELETE POST
   ======================================== */
 
