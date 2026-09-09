@@ -333,6 +333,85 @@ const initials = displayName
               </div>
             </div>
 
+
+            <!-- ACCOUNT SECURITY -->
+            <div class="rounded-2xl border border-[#d9ad55]/20 bg-gradient-to-r from-[#100618] via-[#160722] to-[#100618] p-6 sm:p-7">
+              <div class="max-w-xl">
+                <p class="text-[9px] font-bold uppercase tracking-[.35em] text-[#d9ad55]">
+                  ACCOUNT SECURITY
+                </p>
+
+                <h2 class="display mt-2 text-2xl text-[#ffe8a6]">
+                  Change Password
+                </h2>
+
+                <p class="mt-3 text-sm leading-6 text-white/45">
+                  Keep your Melagram account secure by choosing a new password.
+                  You can change it anytime while you're signed in.
+                </p>
+              </div>
+
+              <form id="password-form" class="mt-6 space-y-5">
+                <div>
+                  <label
+                    for="new_password"
+                    class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-[#d9ad55]"
+                  >
+                    New Password
+                  </label>
+
+                  <input
+                    id="new_password"
+                    name="new_password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                    class="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-white outline-none transition placeholder:text-white/30 focus:border-[#d9ad55]/70 focus:ring-1 focus:ring-[#d9ad55]/30"
+                    placeholder="Enter a new password"
+                  />
+
+                  <p class="mt-2 text-xs text-white/35">
+                    Use at least 8 characters.
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    for="confirm_password"
+                    class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-[#d9ad55]"
+                  >
+                    Confirm New Password
+                  </label>
+
+                  <input
+                    id="confirm_password"
+                    name="confirm_password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                    class="w-full rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-white outline-none transition placeholder:text-white/30 focus:border-[#d9ad55]/70 focus:ring-1 focus:ring-[#d9ad55]/30"
+                    placeholder="Enter the new password again"
+                  />
+                </div>
+
+                <p
+                  id="password-message"
+                  class="hidden rounded-xl border px-4 py-3 text-sm"
+                  aria-live="polite"
+                ></p>
+
+                <button
+                  id="change-password"
+                  type="submit"
+                  class="rounded-full bg-[#6d19c9] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#7d27dc] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Change Password
+                </button>
+              </form>
+            </div>
+
             <!-- PROFILE PHOTO -->
             <div>
               <label
@@ -731,6 +810,119 @@ const initials = displayName
 
           saveButton.disabled = false;
           saveButton.textContent = "Save Changes";
+        }
+      });
+
+
+      /* --------------------------------
+         CHANGE PASSWORD
+      --------------------------------- */
+
+      const passwordForm =
+        document.getElementById("password-form") as HTMLFormElement | null;
+
+      const newPasswordInput =
+        document.getElementById("new_password") as HTMLInputElement | null;
+
+      const confirmPasswordInput =
+        document.getElementById("confirm_password") as HTMLInputElement | null;
+
+      const passwordButton =
+        document.getElementById("change-password") as HTMLButtonElement | null;
+
+      const passwordMessage =
+        document.getElementById("password-message");
+
+      passwordForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (
+          !newPasswordInput ||
+          !confirmPasswordInput ||
+          !passwordButton
+        ) {
+          return;
+        }
+
+        const newPassword = newPasswordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+
+        if (newPassword.length < 8) {
+          if (passwordMessage) {
+            passwordMessage.textContent =
+              "Your new password must be at least 8 characters.";
+            passwordMessage.className =
+              "rounded-xl border border-red-400/30 bg-red-950/30 px-4 py-3 text-sm text-red-200";
+          }
+          newPasswordInput.focus();
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          if (passwordMessage) {
+            passwordMessage.textContent =
+              "The passwords do not match.";
+            passwordMessage.className =
+              "rounded-xl border border-red-400/30 bg-red-950/30 px-4 py-3 text-sm text-red-200";
+          }
+          confirmPasswordInput.focus();
+          return;
+        }
+
+        passwordButton.disabled = true;
+        passwordButton.textContent = "Updating...";
+
+        if (passwordMessage) {
+          passwordMessage.textContent = "";
+          passwordMessage.className = "hidden";
+        }
+
+        try {
+          const result = await actions.updatePassword({
+            password: newPassword,
+          });
+
+          if (result.error) {
+            throw new Error(
+              result.error.message ||
+                "We couldn't change your password. Please try again."
+            );
+          }
+
+          if (!result.data?.success) {
+            throw new Error(
+              result.data?.message ||
+                "We couldn't change your password. Please try again."
+            );
+          }
+
+          newPasswordInput.value = "";
+          confirmPasswordInput.value = "";
+
+          if (passwordMessage) {
+            passwordMessage.textContent =
+              result.data.message ||
+              "Your password has been updated successfully.";
+            passwordMessage.className =
+              "rounded-xl border border-[#d9ad55]/30 bg-[#14091d]/80 px-4 py-3 text-sm text-[#ffe8a6]";
+          }
+
+          passwordButton.disabled = false;
+          passwordButton.textContent = "Password Updated";
+        } catch (error) {
+          console.error("Password update error:", error);
+
+          if (passwordMessage) {
+            passwordMessage.textContent =
+              error instanceof Error
+                ? error.message
+                : "Something went wrong while changing your password.";
+            passwordMessage.className =
+              "rounded-xl border border-red-400/30 bg-red-950/30 px-4 py-3 text-sm text-red-200";
+          }
+
+          passwordButton.disabled = false;
+          passwordButton.textContent = "Change Password";
         }
       });
 
