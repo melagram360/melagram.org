@@ -1,0 +1,680 @@
+---
+import "../styles/global.css";
+import { createClient } from "../lib/supabase";
+
+const supabase = createClient({
+  request: Astro.request,
+  cookies: Astro.cookies,
+  env: Astro.locals.runtime.env,
+});
+
+const {
+  data: { user: currentUser },
+} = await supabase.auth.getUser();
+
+const url = new URL(Astro.request.url);
+const query = (url.searchParams.get("q") ?? "").trim();
+const hasSearch = query.length >= 2;
+const searchTerm = `%${query}%`;
+
+type ProfileResult = {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  creator_enabled: boolean;
+  creator_category: string | null;
+};
+
+type CommunityResult = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+};
+
+type PostResult = {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  image_url: string | null;
+};
+
+let people: ProfileResult[] = [];
+let creators: ProfileResult[] = [];
+let communities: CommunityResult[] = [];
+let posts: PostResult[] = [];
+
+if (hasSearch) {
+  const [
+    { data: peopleData },
+    { data: communityData },
+    { data: postData },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "id, username, full_name, bio, avatar_url, creator_enabled, creator_category"
+      )
+      .neq("id", currentUser?.id ?? "")
+      .or(`username.ilike.${searchTerm},full_name.ilike.${searchTerm},bio.ilike.${searchTerm}`)
+      .order("full_name", { ascending: true })
+      .limit(12),
+
+    supabase
+      .from("communities")
+      .select("id, name, slug, description")
+      .or(`name.ilike.${searchTerm},description.ilike.${searchTerm}`)
+      .order("name", { ascending: true })
+      .limit(12),
+
+    supabase
+      .from("posts")
+      .select("id, user_id, content, created_at, image_url")
+      .ilike("content", searchTerm)
+      .order("created_at", { ascending: false })
+      .limit(12),
+  ]);
+
+  people = (peopleData ?? []) as ProfileResult[];
+  communities = (communityData ?? []) as CommunityResult[];
+  posts = (postData ?? []) as PostResult[];
+
+  creators = people.filter((person) => person.creator_enabled);
+
+  if (creators.length < 12) {
+    const { data: creatorData } = await supabase
+      .from("profiles")
+      .select(
+        "id, username, full_name, bio, avatar_url, creator_enabled, creator_category"
+      )
+      .eq("creator_enabled", true)
+      .or(`username.ilike.${searchTerm},full_name.ilike.${searchTerm},bio.ilike.${searchTerm},creator_category.ilike.${searchTerm}`)
+      .order("full_name", { ascending: true })
+      .limit(12);
+
+    const existingIds = new Set(creators.map((creator) => creator.id));
+
+    for (const creator of (creatorData ?? []) as ProfileResult[]) {
+      if (!existingIds.has(creator.id)) {
+        creators.push(creator);
+      }
+    }
+
+    creators = creators.slice(0, 12);
+  }
+}
+
+const postUserIds = [...new Set(posts.map((post) => post.user_id))];
+
+let postAuthors: ProfileResult[] = [];
+
+if (postUserIds.length > 0) {
+  const { data: authorData } = await supabase
+    .from("profiles")
+    .select(
+      "id, username, full_name, bio, avatar_url, creator_enabled, creator_category"
+    )
+    .in("id", postUserIds);
+
+  postAuthors = (authorData ?? []) as ProfileResult[];
+}
+
+function getDisplayName(profile: ProfileResult | undefined) {
+  return (
+    profile?.full_name?.trim() ||
+    profile?.username?.trim() ||
+    "Melagram Member"
+  );
+}
+
+function getInitials(profile: ProfileResult | undefined) {
+  const name = getDisplayName(profile);
+
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "MM"
+  );
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function getAuthor(userId: string) {
+  return postAuthors.find((profile) => profile.id === userId);
+}
+
+function truncate(value: string | null | undefined, length = 180) {
+  const text = (value ?? "").trim();
+
+  if (text.length <= length) return text;
+
+  return `${text.slice(0, length).trim()}…`;
+}
+
+const resultCount =
+  people.length + communities.length + creators.length + posts.length;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content="Search Melagram for people, communities, creators, and posts."
+    />
+    <title>Search Melagram</title>
+  </head>
+
+  <body>
+    <div class="min-h-screen bg-[#050208] text-white">
+
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+      <!-- NAV -->
+      <header class="border-b border-[#d9ad55]/30 bg-[#050208]/95 backdrop-blur">
+        <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-10">
+
+          <a href="/" class="flex items-center gap-3">
+            <div class="grid h-10 w-10 place-items-center rounded-full border border-[#d9ad55]/70 bg-[#160722] text-xl text-[#ffe8a6]">
+              ♔
+            </div>
+            <span class="display hidden text-lg tracking-[.2em] text-[#ffe8a6] sm:block">
+              MELAGRAM
+            </span>
+          </a>
+
+          <div class="hidden items-center gap-7 text-[10px] font-bold uppercase tracking-[.22em] text-white/70 md:flex">
+            <a class="nav-link" href="/">Home</a>
+            <a class="nav-link" href="/discover">Discover</a>
+            <a class="nav-link" href="/communities">Communities</a>
+            <a class="nav-link" href="/gossip">Gossip</a>
+            <a class="nav-link" href="/creators">Creators</a>
+            <a class="nav-link text-[#ffe8a6]" href="/search">Search</a>
+            <a class="nav-link" href="/about">About</a>
+          </div>
+
+          <div class="flex items-center gap-3">
+            {currentUser ? (
+              <>
+                <a
+                  href="/dashboard"
+                  class="hidden text-[10px] font-bold uppercase tracking-wider text-white/60 transition hover:text-[#ffe8a6] sm:block"
+                >
+                  Dashboard
+                </a>
+                <a
+                  href="/profile"
+                  class="rounded-lg border border-[#d9ad55]/70 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#24102f]"
+                >
+                  Profile
+                </a>
+              </>
+            ) : (
+              <>
+                <a
+                  href="/login"
+                  class="hidden text-[10px] font-bold uppercase tracking-wider text-white/60 transition hover:text-[#ffe8a6] sm:block"
+                >
+                  Sign In
+                </a>
+                <a
+                  href="/join"
+                  class="rounded-lg border border-[#d9ad55]/70 bg-[#6d19c9]/20 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#ffe8a6] transition hover:bg-[#6d19c9]/40"
+                >
+                  Join
+                </a>
+              </>
+            )}
+          </div>
+
+        </nav>
+      </header>
+
+      <main>
+
+        <!-- HERO -->
+        <section class="relative overflow-hidden px-5 pb-16 pt-16 sm:px-6 lg:px-10 lg:pb-20 lg:pt-24">
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(109,25,201,.25),transparent_55%)]"></div>
+
+          <div class="relative mx-auto max-w-5xl text-center">
+
+            <p class="text-[10px] font-bold uppercase tracking-[.55em] text-[#d9ad55]">
+              MELAGRAM DISCOVERY
+            </p>
+
+            <h1 class="display mt-5 text-5xl tracking-[.12em] text-[#ffe8a6] sm:text-7xl">
+              SEARCH MELAGRAM
+            </h1>
+
+            <div class="gold-line mx-auto mt-6 w-28"></div>
+
+            <p class="mx-auto mt-6 max-w-2xl text-sm leading-7 text-white/50 sm:text-base">
+              Find people, communities, creators, and conversations across Melagram.
+            </p>
+
+            <!-- SEARCH FORM -->
+            <form
+              id="search-form"
+              method="get"
+              action="/search"
+              class="mx-auto mt-10 max-w-3xl"
+            >
+              <div class="flex flex-col gap-3 sm:flex-row">
+
+                <div class="relative flex-1">
+                  <span class="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-xl text-[#d9ad55]">
+                    ⌕
+                  </span>
+
+                  <input
+                    id="search-input"
+                    name="q"
+                    type="search"
+                    value={query}
+                    placeholder="Search people, communities, creators, posts…"
+                    autocomplete="off"
+                    class="w-full rounded-xl border border-[#d9ad55]/50 bg-[#100618] py-4 pl-14 pr-5 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#d9ad55] focus:ring-1 focus:ring-[#d9ad55]/30"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  class="rounded-xl border border-[#d9ad55] bg-gradient-to-r from-[#3b0a68] to-[#17052a] px-8 py-4 text-[10px] font-bold uppercase tracking-[.2em] text-[#ffe8a6] transition hover:-translate-y-0.5 hover:bg-[#24102f]"
+                >
+                  Search
+                </button>
+
+                {hasSearch && (
+                  <a
+                    href="/search"
+                    class="rounded-xl border border-white/15 px-6 py-4 text-[10px] font-bold uppercase tracking-[.2em] text-white/60 transition hover:border-[#d9ad55]/50 hover:text-[#ffe8a6]"
+                  >
+                    Clear
+                  </a>
+                )}
+
+              </div>
+
+              <p class="mt-4 text-[10px] uppercase tracking-[.15em] text-white/25">
+                Type at least 2 characters to search
+              </p>
+            </form>
+
+          </div>
+        </section>
+
+        <!-- RESULTS -->
+        <section class="border-t border-[#d9ad55]/15 px-5 py-16 sm:px-6 lg:px-10 lg:py-20">
+          <div class="mx-auto max-w-7xl">
+
+            {!hasSearch ? (
+
+              <div class="luxury-panel gold-border mx-auto max-w-4xl rounded-3xl p-10 text-center sm:p-14">
+                <div class="mx-auto grid h-20 w-20 place-items-center rounded-full border-2 border-[#d9ad55]/60 bg-gradient-to-br from-[#341052] to-[#100618] text-3xl text-[#ffe8a6]">
+                  ⌕
+                </div>
+
+                <p class="mt-7 text-[10px] font-bold uppercase tracking-[.45em] text-[#d9ad55]">
+                  YOUR SEARCH STARTS HERE
+                </p>
+
+                <h2 class="mt-4 font-serif text-3xl text-[#ffe8a6] sm:text-4xl">
+                  What are you looking for?
+                </h2>
+
+                <p class="mx-auto mt-5 max-w-xl text-sm leading-7 text-white/50">
+                  Search a name, username, community, creator category,
+                  or something you remember from a post.
+                </p>
+              </div>
+
+            ) : resultCount === 0 ? (
+
+              <div class="luxury-panel gold-border mx-auto max-w-3xl rounded-3xl p-10 text-center sm:p-14">
+                <div class="mx-auto grid h-20 w-20 place-items-center rounded-full border-2 border-[#d9ad55]/60 bg-gradient-to-br from-[#341052] to-[#100618] text-3xl text-[#ffe8a6]">
+                  ?
+                </div>
+
+                <p class="mt-7 text-[10px] font-bold uppercase tracking-[.45em] text-[#d9ad55]">
+                  NO MATCHES
+                </p>
+
+                <h2 class="mt-4 font-serif text-3xl text-[#ffe8a6] sm:text-4xl">
+                  Nothing came up for “{query}”
+                </h2>
+
+                <p class="mx-auto mt-5 max-w-xl text-sm leading-7 text-white/50">
+                  Try a different name, username, community, creator category,
+                  or keyword.
+                </p>
+
+                <a
+                  href="/search"
+                  class="cta mt-8 inline-flex rounded-xl px-7 py-3 text-xs font-bold uppercase tracking-widest text-white"
+                >
+                  Start Over
+                </a>
+              </div>
+
+            ) : (
+
+              <div>
+
+                <div class="mb-12 flex flex-col gap-3 border-b border-[#d9ad55]/20 pb-6 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p class="text-[10px] font-bold uppercase tracking-[.4em] text-[#d9ad55]">
+                      SEARCH RESULTS
+                    </p>
+                    <h2 class="mt-3 font-serif text-3xl text-[#ffe8a6] sm:text-4xl">
+                      Results for “{query}”
+                    </h2>
+                  </div>
+
+                  <p class="text-xs uppercase tracking-[.15em] text-white/35">
+                    {resultCount} result{resultCount === 1 ? "" : "s"}
+                  </p>
+                </div>
+
+                <!-- PEOPLE -->
+                {people.length > 0 && (
+                  <section class="mb-14">
+                    <div class="mb-6 flex items-center gap-4">
+                      <h3 class="display shrink-0 text-xl tracking-[.15em] text-[#ffe8a6] sm:text-2xl">
+                        PEOPLE
+                      </h3>
+                      <div class="gold-line flex-1"></div>
+                      <span class="text-[9px] font-bold uppercase tracking-widest text-[#d9ad55]">
+                        {people.length}
+                      </span>
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {people.map((person) => (
+                        <a
+                          href={`/members/${person.username}`}
+                          class="group flex items-center gap-4 rounded-2xl border border-[#d9ad55]/25 bg-[#100618] p-4 transition hover:-translate-y-1 hover:border-[#d9ad55]/70 hover:bg-[#160722]"
+                        >
+                          <div class="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-[#d9ad55]/60 bg-gradient-to-br from-[#341052] to-[#100618] font-bold text-[#ffe8a6]">
+                            {person.avatar_url ? (
+                              <img
+                                src={person.avatar_url}
+                                alt={getDisplayName(person)}
+                                class="h-full w-full object-cover"
+                              />
+                            ) : (
+                              getInitials(person)
+                            )}
+                          </div>
+
+                          <div class="min-w-0">
+                            <h4 class="truncate font-serif text-lg text-[#ffe8a6]">
+                              {getDisplayName(person)}
+                            </h4>
+                            {person.username && (
+                              <p class="truncate text-xs text-white/35">
+                                @{person.username}
+                              </p>
+                            )}
+                            {person.bio && (
+                              <p class="mt-1 truncate text-xs text-white/45">
+                                {truncate(person.bio, 80)}
+                              </p>
+                            )}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                <!-- CREATORS -->
+                {creators.length > 0 && (
+                  <section class="mb-14">
+                    <div class="mb-6 flex items-center gap-4">
+                      <h3 class="display shrink-0 text-xl tracking-[.15em] text-[#ffe8a6] sm:text-2xl">
+                        CREATORS
+                      </h3>
+                      <div class="gold-line flex-1"></div>
+                      <span class="text-[9px] font-bold uppercase tracking-widest text-[#d9ad55]">
+                        {creators.length}
+                      </span>
+                    </div>
+
+                    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {creators.map((creator) => (
+                        <a
+                          href={`/members/${creator.username}`}
+                          class="group relative overflow-hidden rounded-2xl border border-[#d9ad55]/50 bg-gradient-to-b from-[#180b24] to-[#08040d] p-5 transition hover:-translate-y-1 hover:border-[#d9ad55]"
+                        >
+                          <div class="absolute left-2 top-2 h-6 w-6 border-l border-t border-[#d9ad55]"></div>
+                          <div class="absolute right-2 top-2 h-6 w-6 border-r border-t border-[#d9ad55]"></div>
+
+                          <div class="flex items-center gap-4">
+                            <div class="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-[#d9ad55]/70 bg-gradient-to-br from-[#341052] to-[#100618] font-bold text-[#ffe8a6]">
+                              {creator.avatar_url ? (
+                                <img
+                                  src={creator.avatar_url}
+                                  alt={getDisplayName(creator)}
+                                  class="h-full w-full object-cover"
+                                />
+                              ) : (
+                                getInitials(creator)
+                              )}
+                            </div>
+
+                            <div class="min-w-0">
+                              <span class="text-[8px] font-bold uppercase tracking-[.18em] text-[#d9ad55]">
+                                Vault Creator
+                              </span>
+                              <h4 class="mt-1 truncate font-serif text-xl text-[#ffe8a6]">
+                                {getDisplayName(creator)}
+                              </h4>
+                              {creator.username && (
+                                <p class="text-xs text-white/35">
+                                  @{creator.username}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div class="mt-5 border-t border-white/10 pt-4">
+                            <p class="text-[9px] font-bold uppercase tracking-[.18em] text-[#d9ad55]">
+                              {creator.creator_category}
+                            </p>
+                            {creator.bio && (
+                              <p class="mt-2 text-sm leading-6 text-white/45">
+                                {truncate(creator.bio, 130)}
+                              </p>
+                            )}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                <!-- COMMUNITIES -->
+                {communities.length > 0 && (
+                  <section class="mb-14">
+                    <div class="mb-6 flex items-center gap-4">
+                      <h3 class="display shrink-0 text-xl tracking-[.15em] text-[#ffe8a6] sm:text-2xl">
+                        COMMUNITIES
+                      </h3>
+                      <div class="gold-line flex-1"></div>
+                      <span class="text-[9px] font-bold uppercase tracking-widest text-[#d9ad55]">
+                        {communities.length}
+                      </span>
+                    </div>
+
+                    <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                      {communities.map((community) => (
+                        <a
+                          href={`/communities/${community.slug}`}
+                          class="group rounded-2xl border border-[#d9ad55]/30 bg-[#100618] p-6 transition hover:-translate-y-1 hover:border-[#d9ad55]/70 hover:bg-[#160722]"
+                        >
+                          <div class="flex items-start justify-between gap-4">
+                            <div>
+                              <span class="text-[9px] font-bold uppercase tracking-[.2em] text-[#d9ad55]">
+                                Community
+                              </span>
+                              <h4 class="mt-2 font-serif text-2xl text-[#ffe8a6]">
+                                {community.name}
+                              </h4>
+                            </div>
+                            <span class="text-xl text-[#d9ad55]">→</span>
+                          </div>
+
+                          {community.description && (
+                            <p class="mt-4 text-sm leading-6 text-white/45">
+                              {truncate(community.description, 150)}
+                            </p>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                <!-- POSTS -->
+                {posts.length > 0 && (
+                  <section>
+                    <div class="mb-6 flex items-center gap-4">
+                      <h3 class="display shrink-0 text-xl tracking-[.15em] text-[#ffe8a6] sm:text-2xl">
+                        POSTS
+                      </h3>
+                      <div class="gold-line flex-1"></div>
+                      <span class="text-[9px] font-bold uppercase tracking-widest text-[#d9ad55]">
+                        {posts.length}
+                      </span>
+                    </div>
+
+                    <div class="grid gap-5 lg:grid-cols-2">
+                      {posts.map((post) => {
+                        const author = getAuthor(post.user_id);
+
+                        return (
+                          <article class="rounded-2xl border border-[#d9ad55]/25 bg-[#100618] p-6">
+                            <div class="flex items-center gap-3">
+                              <div class="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-[#d9ad55]/50 bg-gradient-to-br from-[#341052] to-[#100618] text-sm font-bold text-[#ffe8a6]">
+                                {author?.avatar_url ? (
+                                  <img
+                                    src={author.avatar_url}
+                                    alt={getDisplayName(author)}
+                                    class="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  getInitials(author)
+                                )}
+                              </div>
+
+                              <div class="min-w-0">
+                                <p class="truncate font-semibold text-[#ffe8a6]">
+                                  {getDisplayName(author)}
+                                </p>
+                                <p class="text-[10px] uppercase tracking-wider text-white/30">
+                                  {formatDate(post.created_at)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <p class="mt-5 whitespace-pre-wrap text-sm leading-7 text-white/60">
+                              {truncate(post.content, 280)}
+                            </p>
+
+                            {post.image_url && (
+                              <img
+                                src={post.image_url}
+                                alt="Post image"
+                                class="mt-5 max-h-64 w-full rounded-xl object-cover"
+                                loading="lazy"
+                              />
+                            )}
+
+                            <div class="mt-5 border-t border-white/10 pt-4 text-right">
+                              <span class="text-[9px] font-bold uppercase tracking-[.18em] text-[#d9ad55]">
+                                Melagram Post
+                              </span>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+              </div>
+            )}
+
+          </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="px-5 pb-20 lg:px-10">
+          <div class="luxury-panel gold-border mx-auto max-w-5xl rounded-3xl p-10 text-center sm:p-14">
+            <p class="text-[10px] font-bold uppercase tracking-[.5em] text-[#d9ad55]">
+              MELAGRAM IS GROWING
+            </p>
+
+            <h2 class="mt-5 font-serif text-3xl text-[#fff4d4] sm:text-4xl">
+              Find your people. Find your circle.
+            </h2>
+
+            <p class="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/50">
+              Discover communities, creators, conversations, and people
+              who make Melagram what it is.
+            </p>
+
+            <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <a
+                href="/communities"
+                class="cta inline-flex justify-center rounded-xl px-7 py-3 text-xs font-bold uppercase tracking-widest text-white"
+              >
+                Explore Communities
+              </a>
+
+              <a
+                href="/creators/vault"
+                class="inline-flex justify-center rounded-xl border border-[#d9ad55]/50 px-7 py-3 text-xs font-bold uppercase tracking-widest text-[#ffe8a6] transition hover:bg-[#24102f]"
+              >
+                Enter Creators Vault
+              </a>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <footer class="border-t border-[#d9ad55]/20 bg-[#050208]">
+        <div class="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-8 text-center text-xs text-[#fff7e5]/45 md:flex-row md:items-center md:justify-between md:text-left">
+          <p>
+            © 2026 Melagram. Connect. Network. Create. Build Community.
+          </p>
+
+          <div class="flex flex-wrap justify-center gap-5 md:justify-end">
+            <a href="/about" class="hover:text-[#ffe8a6]">About</a>
+            <a href="/communities" class="hover:text-[#ffe8a6]">Communities</a>
+            <a href="/gossip" class="hover:text-[#ffe8a6]">Gossip</a>
+            <a href="/creators" class="hover:text-[#ffe8a6]">Creators</a>
+          </div>
+        </div>
+      </footer>
+
+      <div class="h-2 bg-gradient-to-r from-[#24102f] via-[#d9ad55] to-[#24102f]"></div>
+
+    </div>
+  </body>
+</html>
